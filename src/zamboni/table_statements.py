@@ -3,6 +3,8 @@ create_statements = {
     """
     CREATE TABLE players (
         id INTEGER PRIMARY KEY,
+        apiID INTEGER,
+        teamID INTEGER,
         name TEXT
         )
     """,
@@ -10,19 +12,35 @@ create_statements = {
     """
     CREATE TABLE teams (
         id INTEGER PRIMARY KEY,
-        name TEXT
+        apiID iNTEGER,
+        name TEXT,
+        nameAbbrev TEXT,
+        conferenceAbbrev TEXT,
+        divisionAbbrev TEXT
         )
     """,
     'games' :
     """
     CREATE TABLE games (
         id INTEGER PRIMARY KEY,
+        apiID INTEGER,
         homeTeamID INTEGER,
         awayTeamID INTEGER,
         locationID INTEGER,
         datePlayed INTEGER,
         timePlayed INTEGER,
-        seasonID INTEGER
+        seasonID INTEGER,
+        homeTeamGoals INTEGER,
+        awayTeamGoals INTEGER
+        )
+    """,
+    'seasons' :
+    """
+    CREATE TABLE seasons (
+        id INTEGER PRIMARY KEY,
+        apiID INTEGER,
+        startYear INTEGER,
+        endYear INTEGER
         )
     """
     }

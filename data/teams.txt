@@ -1,0 +1,32 @@
+Vancouver Canucks, VAN, W, P
+Boston Bruins, BOS, E, A
+Florida Panthers, FLA, E, A
+Dallas Stars, DAL, W, C
+New York Rangers, NYR, E, M
+Colorado Avalanche, COL, W, C
+Winnipeg Jets, WPG, W, C
+Carolina Hurricanes, CAR, E, M
+Vegas Golden Knights, VGK, W, P
+Toronto Maple Leafs, TOR, E, A
+Edmonton Oilers, EDM, W, P
+Philadelphia Flyers, PHI, E, M
+Tampa Bay Lightning, TBL, E, A
+Los Angeles Kings, LAK, W, P
+Detroit Red Wings, DET, E, A
+New Jersey Devils, NJD, E, M
+St. Louis Blues, STL, W, C
+New York Islanders, NYI, E, M
+Nashville Predators, NSH, W, C
+Minnesota Wild, MIN, W, C
+Seattle Kraken, SEA, W, P
+Calgary Flames, CGY, W, P
+Washington Capitals, WSH, E, M
+Pittsburgh Penguins, PIT, E, M
+Buffalo Sabres, BUF, E, A
+Montréal Canadiens, MTL, E, A
+Arizona Coyotes, ARI, W, C
+Ottawa Senators, OTT, E, A
+Columbus Blue Jackets, CBJ, E, M
+Anaheim Ducks, ANA, W, P
+San Jose Sharks, SJS, W, P
+Chicago Blackhawks, CHI, W, C
