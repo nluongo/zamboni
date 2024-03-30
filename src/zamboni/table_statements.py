@@ -12,7 +12,7 @@ create_statements = {
     """
     CREATE TABLE teams (
         id INTEGER PRIMARY KEY,
-        apiID iNTEGER,
+        apiID INTEGER,
         name TEXT,
         nameAbbrev TEXT,
         conferenceAbbrev TEXT,
