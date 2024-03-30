@@ -1,4 +1,4 @@
-from db_con import DBConnector
+from .db_con import DBConnector
 
 db = DBConnector()
 conn = db.connect_db()
