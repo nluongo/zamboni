@@ -4,8 +4,11 @@ create_statements = {
     CREATE TABLE players (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
-        teamID INTEGER,
-        name TEXT
+        name TEXT,
+        firstName TEXT,
+        lastName TEXT,
+        number INT,
+        position TEXT,
         )
     """,
     'teams' :
@@ -26,12 +29,13 @@ create_statements = {
         apiID INTEGER,
         homeTeamID INTEGER,
         awayTeamID INTEGER,
-        locationID INTEGER,
         datePlayed INTEGER,
         timePlayed INTEGER,
         seasonID INTEGER,
         homeTeamGoals INTEGER,
-        awayTeamGoals INTEGER
+        awayTeamGoals INTEGER,
+        gameTypeID INTEGER,
+        lastPeriodTypeID INTEGER
         )
     """,
     'seasons' :
