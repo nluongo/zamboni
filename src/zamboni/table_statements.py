@@ -47,4 +47,16 @@ create_statements = {
         endYear INTEGER
         )
     """
+    'rosterEntry' :
+    """
+    CREATE TABLE rosterEntry (
+        id INTEGER PRIMARY KEY,
+        apiID INTEGER,
+        playerID INTEGER,
+        teamID INTEGER,
+        seasonID INTEGER,
+        startYear INTEGER,
+        endYear INTEGER
+        )
+    """
     }
