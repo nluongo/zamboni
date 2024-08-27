@@ -8,7 +8,7 @@ create_statements = {
         firstName TEXT,
         lastName TEXT,
         number INT,
-        position TEXT,
+        position TEXT
         )
     """,
     'teams' :
@@ -46,10 +46,10 @@ create_statements = {
         startYear INTEGER,
         endYear INTEGER
         )
+    """,
+    'rosterEntries' :
     """
-    'rosterEntry' :
-    """
-    CREATE TABLE rosterEntry (
+    CREATE TABLE rosterEntries (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
         playerID INTEGER,

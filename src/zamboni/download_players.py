@@ -1,4 +1,7 @@
 import requests
+from zamboni import APICaller
+
+caller = APICaller('player')
 
 #api_id = 8475104
 api_id = 8450157
@@ -9,10 +12,8 @@ fetch_players = 1
 step = 1
 with open('data/players.txt', 'a') as f:
     while api_id < end_id:
-        try:
-            r = requests.get(f'https://api-web.nhle.com/v1/player/{api_id}/landing')
-            player = r.json()
-        except:
+        player = caller.query(api_id, throw_error=False)
+        if not player:
             if api_id%step == 0:
                 print(api_id)
             api_id += 1
@@ -20,7 +21,6 @@ with open('data/players.txt', 'a') as f:
         first_name = player['firstName']['default']
         last_name = player['lastName']['default']
         full_name = f'{first_name} {last_name}'
-        print(full_name)
         if 'sweaterNumber' not in player.keys():
             number = '-1'
         else:

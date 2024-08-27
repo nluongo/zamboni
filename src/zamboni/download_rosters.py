@@ -9,7 +9,7 @@ with open('data/teams.txt', 'r') as f_teams:
 start_year = 1900
 end_year = start_year + 1
 
-with open('data/rosterEntry.txt', 'w') as roster_f:
+with open('data/rosterEntries.txt', 'w') as roster_f:
     while start_year < datetime.now().year:
         end_year = start_year + 1
         for team in team_abbrevs:
@@ -24,8 +24,11 @@ with open('data/rosterEntry.txt', 'w') as roster_f:
             players = forwards + defensemen + goalies
     
             for player in players:
+                print(player)
+                exit()
                 first_name = player['firstName']['default']
                 last_name = player['lastName']['default']
-                entry_str = f'{team}, {start_year}, {first_name}, {last_name}, {start_year}, {end_year}\n'
+                api_id = player['id']
+                entry_str = f'{api_id}, {team}, {start_year}, {first_name}, {last_name}, {start_year}, {end_year}\n'
                 roster_f.write(entry_str)
         start_year += 1

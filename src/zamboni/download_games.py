@@ -1,7 +1,8 @@
 import requests
 from datetime import datetime, date, timedelta
 
-sched_date = date(2022, 9, 28)
+# Per Wikipedia, the first NHL game
+sched_date = date(1917, 12, 19)
 day_delta = timedelta(days=1)
 
 today_date = date.today()
@@ -16,7 +17,6 @@ with open('data/games.txt', 'a') as f:
         month_str = zero_pad(sched_date.month, 2)
         day_str = zero_pad(sched_date.day, 2)
         date_string = f'{year_str}-{month_str}-{day_str}'
-        print(date_string)
         request_string = f'https://api-web.nhle.com/v1/schedule/{date_string}'
         try:
             r = requests.get(request_string)
@@ -47,6 +47,6 @@ with open('data/games.txt', 'a') as f:
             except:
                 sched_date += day_delta
                 continue
-            f.write(f'{api_id}, {home_id}, {away_id}, {datetime_utc.date()}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
+            f.write(f'{api_id}, {season_id}, {home_id}, {away_id}, {datetime_utc.date()}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
         sched_date += day_delta
     

@@ -12,7 +12,9 @@ goalies = info_json['goalies']
 players = forwards + defensemen + goalies
 
 for player in players:
+    print(player)
     first_name = player['firstName']['default']
     last_name = player['lastName']['default']
-    print(f'{team_abbrev} {start_year} {first_name} {last_name}')
+    api_id = player['id']
+    print(f'{team_abbrev} {start_year} {first_name} {last_name} {api_id}')
 
