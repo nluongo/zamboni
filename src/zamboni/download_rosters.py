@@ -1,5 +1,8 @@
 import requests
 from datetime import datetime
+from zamboni import APICaller
+
+caller = APICaller('roster')
 
 with open('data/teams.txt', 'r') as f_teams:
     team_lines = f_teams.readlines()
@@ -9,23 +12,20 @@ with open('data/teams.txt', 'r') as f_teams:
 start_year = 1900
 end_year = start_year + 1
 
-with open('data/rosterEntries.txt', 'w') as roster_f:
+with open('data/rosterEntries.txt', 'a') as roster_f:
     while start_year < datetime.now().year:
         end_year = start_year + 1
         for team in team_abbrevs:
-            try:
-                r = requests.get(f'https://api-web.nhle.com/v1/roster/{team}/{start_year}{end_year}')
-                info_json = r.json()
-            except:
+            api_ids = [team, start_year, end_year]
+            out = caller.query(api_ids, throw_error=False)
+            if out is None:
                 continue
             forwards = info_json['forwards']
             defensemen = info_json['defensemen']
             goalies = info_json['goalies']
             players = forwards + defensemen + goalies
-    
             for player in players:
                 print(player)
-                exit()
                 first_name = player['firstName']['default']
                 last_name = player['lastName']['default']
                 api_id = player['id']

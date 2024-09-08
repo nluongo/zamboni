@@ -1,14 +1,12 @@
 from zamboni import APICaller
 
-caller = APICaller()
+caller = APICaller('standings')
 
-info_json = caller.query('standings', 'now')
+info_json = caller.query()
 
 standings = info_json['standings']
 with open('data/teams.txt', 'w') as f:
     for team in standings:
-        #print(team)
-        #break
         team_name = team['teamName']['default']
         team_abbrev = team['teamAbbrev']['default']
         conf_abbrev = team['conferenceAbbrev']

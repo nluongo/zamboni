@@ -10,9 +10,9 @@ api_id = 8450157
 end_id = 8500000
 fetch_players = 1
 step = 1
-with open('data/players.txt', 'a') as f:
+with open('data/players.txt', 'w') as f:
     while api_id < end_id:
-        player = caller.query(api_id, throw_error=False)
+        player = caller.query([api_id], throw_error=False)
         if not player:
             if api_id%step == 0:
                 print(api_id)

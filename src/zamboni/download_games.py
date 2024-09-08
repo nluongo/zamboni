@@ -1,5 +1,8 @@
 import requests
 from datetime import datetime, date, timedelta
+from zamboni import APICaller
+
+caller = APICaller('game')
 
 # Per Wikipedia, the first NHL game
 sched_date = date(1917, 12, 19)
@@ -16,15 +19,12 @@ with open('data/games.txt', 'a') as f:
         year_str = zero_pad(sched_date.year, 4)
         month_str = zero_pad(sched_date.month, 2)
         day_str = zero_pad(sched_date.day, 2)
-        date_string = f'{year_str}-{month_str}-{day_str}'
-        request_string = f'https://api-web.nhle.com/v1/schedule/{date_string}'
-        try:
-            r = requests.get(request_string)
-            info_json = r.json()
-        except:
+        date_string = [f'{year_str}-{month_str}-{day_str}']
+        output = caller.query(date_string, throw_error=False)
+        if not output:
             sched_date += day_delta
             continue
-        week = info_json['gameWeek']
+        week = output['gameWeek']
         day = week[0]
         games = day['games']
         if games == []:
