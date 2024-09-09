@@ -43,7 +43,7 @@ class APICaller():
         print(url)
         try:
             api_out = requests.get(url)
-        except:
+        except requests.exceptions.JSONDecodeError:
             if throw_error:
                 raise ValueError(f'Failed to query {url}')
             else:

@@ -1,4 +1,3 @@
-import requests
 from datetime import datetime
 from zamboni import APICaller
 
@@ -20,9 +19,9 @@ with open('data/rosterEntries.txt', 'a') as roster_f:
             out = caller.query(api_ids, throw_error=False)
             if out is None:
                 continue
-            forwards = info_json['forwards']
-            defensemen = info_json['defensemen']
-            goalies = info_json['goalies']
+            forwards = out['forwards']
+            defensemen = out['defensemen']
+            goalies = out['goalies']
             players = forwards + defensemen + goalies
             for player in players:
                 print(player)

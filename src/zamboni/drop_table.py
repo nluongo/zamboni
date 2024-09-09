@@ -4,6 +4,6 @@ db = DBConnector()
 conn = db.connect_db()
 cursor = conn.cursor()
 
-sql = f'''DROP TABLE teams'''
+sql = '''DROP TABLE teams'''
 cursor.execute(sql)
 conn.commit()

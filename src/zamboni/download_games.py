@@ -1,4 +1,3 @@
-import requests
 from datetime import datetime, date, timedelta
 from zamboni import APICaller
 
@@ -44,7 +43,7 @@ with open('data/games.txt', 'a') as f:
                 away_goals = away_team['score']
                 type_id = game['gameType']
                 last_period_type = game['gameOutcome']['lastPeriodType']
-            except:
+            except KeyError:
                 sched_date += day_delta
                 continue
             f.write(f'{api_id}, {season_id}, {home_id}, {away_id}, {datetime_utc.date()}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')

@@ -18,7 +18,7 @@ with open('data/games.txt', 'a') as f:
             print(request_string)
             r = requests.get(request_string)
             info_json = r.json()
-        except:
+        except requests.exceptions.JSONDecodeError:
             sched_date += day_delta
             continue
         week = info_json['gameWeek']

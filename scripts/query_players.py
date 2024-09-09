@@ -12,7 +12,7 @@ with open('data/players.txt', 'a') as f:
         try:
             r = requests.get(f'https://api-web.nhle.com/v1/player/{api_id}/landing')
             player = r.json()
-        except:
+        except requests.exceptions.JSONDecodeError:
             if api_id%step == 0:
                 print(api_id)
             api_id += 1
