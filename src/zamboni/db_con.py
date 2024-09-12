@@ -3,10 +3,19 @@ import logging
 from pathlib import Path
 
 class DBConnector():
+    ''' Get connection to SQLite db '''
     def __init__(self, db_path='data/zamboni.db'):
+        '''
+        Store path to db
+
+        :param db_path: Path to db
+        '''
         self.db_path = Path(db_path)
 
     def connect_db(self):
+        '''
+        Connect to db or create if it doesn't exist
+        '''
         if self.db_path.is_file():
             logging.info(f'Opening existing DB at {self.db_path}')
         else:
@@ -15,10 +24,16 @@ class DBConnector():
         return self.conn
 
     def get_cursor(self):
+        '''
+        Get cursor for interacting with db
+        '''
         if not self.conn:
             self.connect_db()
         cursor = self.conn.cursor()
         return cursor
 
     def close(self):
+        '''
+        Close connection
+        '''
         self.con.close()

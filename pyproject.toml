@@ -9,6 +9,8 @@ dependencies = [
     "requests>=2.31.0",
     "jupyter>=1.0.0",
     "ruff>=0.6.4",
+    "pandas>=2.2.2",
+    "resolvelib>=1.0.1",
 ]
 requires-python = "==3.10.*"
 readme = "README.md"
