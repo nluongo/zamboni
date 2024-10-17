@@ -27,15 +27,16 @@ create_statements = {
     CREATE TABLE games (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
+        seasonID INTEGER,
         homeTeamID INTEGER,
         awayTeamID INTEGER,
         datePlayed INTEGER,
         timePlayed INTEGER,
-        seasonID INTEGER,
         homeTeamGoals INTEGER,
         awayTeamGoals INTEGER,
         gameTypeID INTEGER,
-        lastPeriodTypeID INTEGER
+        lastPeriodTypeID INTEGER,
+        outcome INTEGER
         )
     """,
     'seasons' :
