@@ -38,9 +38,7 @@ class APICaller():
         :param throw_error: Flag to throw error if query returns nothing
         :returns: JSON of API output
         """
-        print(record_ids)
         url = self.url.format(*record_ids)
-        print(url)
         try:
             api_out = requests.get(url)
         except requests.exceptions.JSONDecodeError:
