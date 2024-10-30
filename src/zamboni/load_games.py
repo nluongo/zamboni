@@ -16,7 +16,7 @@ def get_team_id(id_dict, team_abbrev):
             team_id = query_out[0]
             id_dict[team_abbrev] = team_id
         else:
-            raise ValueError(f'No team record found with name {team_abbrev}')
+            team_id = -1
     else:
         team_id = id_dict[team_abbrev]
     return team_id

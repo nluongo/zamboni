@@ -18,7 +18,7 @@ class Exporter():
         """
         Export the data returned by sql to the given destination
 
-        :param sql: SQL statement to query informaiont from db
+        :param sql: SQL statement to query information from db
         :param dest: Path to export data
         """
         df = pd.read_sql(sql, self.conn)
