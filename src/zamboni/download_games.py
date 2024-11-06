@@ -46,6 +46,8 @@ with open('data/games.txt', 'a+') as f:
                 season_id = game['season']
                 datetime.fromisoformat('2011-11-04T00:05:23')
                 datetime_utc = datetime.fromisoformat(game['startTimeUTC'].replace('Z','+00:00'))
+                day_of_yr = datetime_utc.timetuple().tm_yday
+                year = sched_date.year
                 home_team = game['homeTeam']
                 home_id = home_team['id']
                 home_abbrev = home_team['abbrev']
@@ -59,6 +61,6 @@ with open('data/games.txt', 'a+') as f:
             except KeyError:
                 sched_date += day_delta
                 continue
-            f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_utc.date()}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
+            f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_utc.date()}, {day_of_yr}, {year}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
         sched_date += day_delta
     

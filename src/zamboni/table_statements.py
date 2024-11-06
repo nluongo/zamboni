@@ -31,6 +31,8 @@ create_statements = {
         homeTeamID INTEGER,
         awayTeamID INTEGER,
         datePlayed INTEGER,
+        dayOfYrPlayed INTEGER,
+        yrPlayed INTEGER,
         timePlayed INTEGER,
         homeTeamGoals INTEGER,
         awayTeamGoals INTEGER,
