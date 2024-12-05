@@ -5,57 +5,75 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from models.simplenn import SimpleNN
+from models.simplenn import SimpleNN, EmbeddingNN
 
 # Custom Dataset class to handle parquet data
-class ParquetDataset(Dataset):
-    def __init__(self, data, target_column):
-        self.features = data.drop(columns=[target_column]).values
+class ZamboniDataset(Dataset):
+    def __init__(self, data, target_column, cat_features=None):
+        self.feature_data = data.drop(columns=[target_column])
+        self.features = self.feature_data.values
+        self.cont_features = self.feature_data.drop(columns=cat_features).values
+        self.cat_features = data[cat_features].values
         self.labels = data[target_column].values
 
     def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        x = torch.tensor(self.features[idx], dtype=torch.float32)
+        x_cont = torch.tensor(self.cont_features[idx], dtype=torch.float32)
+        x_cat = torch.tensor(self.cat_features[idx], dtype=torch.long)
         y = torch.tensor(self.labels[idx], dtype=torch.long)
-        return x, y
+        if self.cat_features is not None:
+            return x_cont, x_cat, y
+        else:
+            return x_cont, y
 
 # Load parquet file into a Pandas DataFrame
 data = pd.read_parquet('~/Code/zamboni/data/games.parquet')
+data = data[data['homeTeamID'] != -1]
+data = data[data['awayTeamID'] != -1]
 
 # Define target column name
 target_column = 'outcome'
+categorical_columns = ['homeTeamID', 'awayTeamID']
+noscale_columns = [target_column] + categorical_columns
 
 # Split the data into train and test sets
 train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
 
+num_teams = int(train_data['homeTeamID'].nunique()) + 5
+
 # Standardize the features
-#scaler = StandardScaler()
-#train_features = scaler.fit_transform(train_data.drop(columns=[target_column]))
-#test_features = scaler.transform(test_data.drop(columns=[target_column]))
-train_features = train_data.drop(columns=[target_column])
-test_features = test_data.drop(columns=[target_column])
+scaler = StandardScaler()
+train_features = scaler.fit_transform(train_data.drop(columns=noscale_columns))
+test_features = scaler.transform(test_data.drop(columns=noscale_columns))
+#train_features = train_data.drop(columns=noscale_columns)
+#test_features = test_data.drop(columns=noscale_columns)
 
 # Recreate the train and test DataFrames with scaled features
-train_data_scaled = pd.DataFrame(train_features, columns=train_data.columns[:-1])
-train_data_scaled[target_column] = train_data[target_column].values
-test_data_scaled = pd.DataFrame(test_features, columns=test_data.columns[:-1])
-test_data_scaled[target_column] = test_data[target_column].values
+train_data_scaled = pd.DataFrame(train_features)
+test_data_scaled = pd.DataFrame(test_features)
+for column in noscale_columns:
+    train_data_scaled[column] = train_data[column].values
+    test_data_scaled[column] = test_data[column].values
 
 # Create Dataset objects
-train_dataset = ParquetDataset(train_data_scaled, target_column)
-test_dataset = ParquetDataset(test_data_scaled, target_column)
+train_dataset = ZamboniDataset(train_data_scaled, target_column, categorical_columns) 
+test_dataset = ZamboniDataset(test_data_scaled, target_column, categorical_columns)
 
 # DataLoader for batching
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 # Define the model, loss function, and optimizer
-input_size = train_features.shape[1]
-hidden_size = 64
+input_size = train_data.shape[1] - 1
+hidden_size = 128
 num_classes = len(data[target_column].unique())
-model = SimpleNN(input_size, hidden_size, num_classes)
+num_embed_features = 2 # Embedding each team
+num_embed_categories = num_teams
+embed_dim = 10
+#model = SimpleNN(input_size, hidden_size, num_classes)
+model = EmbeddingNN(input_size, hidden_size, num_classes, num_embed_features, num_embed_categories, embed_dim)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -65,9 +83,10 @@ epochs = 10
 for epoch in range(epochs):
     model.train()
     running_loss = 0.0
-    for inputs, labels in train_loader:
+    for inputs, cat_inputs, labels in train_loader:
+        print(inputs)
         optimizer.zero_grad()
-        outputs = model(inputs)
+        outputs = model(inputs, cat_inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
