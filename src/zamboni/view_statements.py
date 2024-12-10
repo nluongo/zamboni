@@ -5,7 +5,7 @@ games_per_team_statement = """
             id AS gameID,
             homeTeamID AS teamID,
             CASE outcome WHEN 1 THEN 1 ELSE 0 END AS won,
-            CASE outcome WHEN 0 THEN 1 ELSE 0 END AS tied,
+            CASE WHEN lastPeriodTypeID != "REG" THEN 1 ELSE 0 END AS inOT,
             homeTeamGoals AS goals,
             awayTeamGoals AS oppGoals
         FROM games
@@ -14,7 +14,7 @@ games_per_team_statement = """
             id AS gameID,
             awayTeamID AS teamID,
             CASE outcome WHEN 0 THEN 1 ELSE 0 END AS won,
-            CASE outcome WHEN 0 THEN 1 ELSE 0 END AS tied,
+            CASE WHEN lastPeriodTypeID != "REG" THEN 1 ELSE 0 END AS inOT,
             awayTeamGoals AS goals,
             homeTeamGoals AS oppGoals
         FROM games
@@ -31,7 +31,9 @@ games_with_previous_statement = """
 	        games.datePlayed as datePlayed,  
 	        games.seasonID as seasonID,  
 	        other_games.datePlayed as prevDatePlayed,  
-	        other_games_per_team.won as prevWon  
+	        other_games_per_team.won as prevWon, 
+            other_games_per_team.goals as prevGoals,
+            other_games_per_team.oppGoals as prevOppGoals
 	    FROM games_per_team  
 	    INNER JOIN games ON games_per_team.gameID = games.id  
 	    INNER JOIN teams ON games_per_team.teamID = teams.id  
