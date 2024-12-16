@@ -3,7 +3,7 @@ from .table_statements import create_statements
 from .table_creator import TableCreator
 from .api_caller import APICaller
 from .exporter import Exporter
-from .view_statements import games_per_team_statement, games_with_previous_statement
+from .view_statements import view_statements
 
 __all__ = [
             "DBConnector",
@@ -11,6 +11,5 @@ __all__ = [
             "TableCreator",
             "APICaller",
             "Exporter",
-            "games_per_team_statement",
-            "games_with_previous_statement",
+            "view_statements",
           ]
