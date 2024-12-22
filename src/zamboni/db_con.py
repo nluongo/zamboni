@@ -29,8 +29,8 @@ class DBConnector():
         '''
         if not self.conn:
             self.connect_db()
-        cursor = self.conn.cursor()
-        return cursor
+        self.cursor = self.conn.cursor()
+        return self.cursor
 
     def close(self):
         '''
