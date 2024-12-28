@@ -1,4 +1,4 @@
-from db_con import DBConnector
+from zamboni.db_con import DBConnector
 
 class SQLLoader():
     ''' Load information from text files into SQLite database '''
@@ -27,10 +27,12 @@ class SQLLoader():
             team_id = id_dict[team_abbrev]
         return team_id
     
-    def load_games(self, txt_path=f'{txt_dir}/games.txt'):
+    def load_games(self, txt_path=None):
         '''
         Load games from txt to db
         '''
+        if not txt_path:
+            txt_path = f'{self.txt_dir}/games.txt'
         with open(txt_path, 'r') as f:
             for line in f.readlines():
                 split_line = line.split(',')
@@ -62,10 +64,12 @@ class SQLLoader():
                 self.db.cursor.execute(sql)
             self.db.conn.commit()
 
-    def load_players(self, txt_path=f'{txt_dir}/players.txt'):
+    def load_players(self, txt_path=None):
         '''
         Load players from txt to db
         '''
+        if not txt_path:
+            txt_path = f'{self.txt_dir}/players.txt'
         with open(txt_path) as f:
             for line in f.readlines():
                 line = [entry.strip() for entry in line.split(',')]
@@ -76,10 +80,12 @@ class SQLLoader():
                 self.db.cursor.execute(sql)
             self.db.conn.commit()
         
-    def load_roster_entries(self, txt_path=f'{txt_dir}/rosterEntries.txt'):
+    def load_roster_entries(self, txt_path=None):
         '''
         Load roster entries (player + team + season) from txt to db
         '''
+        if not txt_path:
+            txt_path = f'{self.txt_dir}/rosterEntries.txt'
         with open(txt_path, 'r') as f:
             for line in f.readlines():
                 line = [entry.strip() for entry in line.split(',')]
@@ -106,10 +112,12 @@ class SQLLoader():
                 self.db.cursor.execute(sql)
             self.db.conn.commit()
 
-    def load_teams(self, txt_path=f'{txt_dir}/teams.txt'):
+    def load_teams(self, txt_path=None):
         '''
         Load teams from txt to db
         '''
+        if not txt_path:
+            txt_path = f'{self.txt_dir}/teams.txt'
         with open(txt_path) as f:
             for line in f.readlines():
                 split_line = line.split(',')
