@@ -34,7 +34,11 @@ with open('data/games.txt', 'r') as f:
             outcome = 0
         else:
             outcome = -1
-        sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome)
+        if last_period_type == 'REG':
+            in_ot = 0
+        else:
+            in_ot = 1
+        sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT)
                 VALUES("{api_id}", \
                        "{season_id}", \
                        "{home_team_id}", \
@@ -47,7 +51,8 @@ with open('data/games.txt', 'r') as f:
                        "{away_team_goals}", \
                        "{game_type}", \
                        "{last_period_type}", \
-                       "{outcome}" \
+                       "{outcome}", \
+                       "{in_ot}" \
                        )'''
         cursor.execute(sql)
         conn.commit()

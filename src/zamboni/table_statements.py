@@ -38,7 +38,8 @@ create_statements = {
         awayTeamGoals INTEGER,
         gameTypeID INTEGER,
         lastPeriodTypeID INTEGER,
-        outcome INTEGER
+        outcome INTEGER,
+        inOT INTEGER
         )
     """,
     'seasons' :
