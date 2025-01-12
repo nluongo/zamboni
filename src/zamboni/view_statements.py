@@ -62,13 +62,24 @@ view_statements = {
         """
     CREATE VIEW IF NOT EXISTS games_prev_same_opp
     AS
-    SELECT 
-        gameID AS gameID,
+    SELECT
+        prevMatchup.gameID,
+        gwp2.prevGameID,
+        games.outcome AS prevOutcome,
+        games.inOT AS prevInOT
+    FROM ( 
+    SELECT gameID AS gameID,
         MAX(teamID) AS teamID,
         MAX(prevDatePlayed) AS prevDatePlayed
     FROM games_with_previous
     WHERE oppTeamID=prevOppTeamID
-    GROUP BY gameID
+    GROUP BY gameID ) prevMatchup
+    INNER JOIN games_with_previous gwp2
+        ON prevMatchup.gameID=gwp2.gameID
+        AND prevMatchup.prevDatePlayed=gwp2.prevDatePlayed
+        AND prevMatchup.teamID=gwp2.teamID
+    LEFT OUTER JOIN games
+        ON gwp2.prevGameID=games.id
     """,
 # This holds summarized historical information for each game and team
     'games_history':

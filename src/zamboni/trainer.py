@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from models.simplenn import SimpleNN, EmbeddingNN
+import matplotlib.pyplot as plt
 
 # Custom Dataset class to handle parquet data
 class ZamboniDataset(Dataset):
@@ -34,9 +35,11 @@ data = data[data['homeTeamID'] != -1]
 data = data[data['awayTeamID'] != -1]
 
 # Define target column name
+all_columns = data.columns.tolist()
 target_column = 'outcome'
 categorical_columns = ['homeTeamID', 'awayTeamID']
 noscale_columns = [target_column] + categorical_columns
+#scale_columns = all_columns - noscale_columns
 
 # Split the data into train and test sets
 train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
@@ -59,7 +62,9 @@ for column in noscale_columns:
 
 # Create Dataset objects
 train_dataset = ZamboniDataset(train_data_scaled, target_column, categorical_columns) 
+print(len(train_dataset))
 test_dataset = ZamboniDataset(test_data_scaled, target_column, categorical_columns)
+print(len(test_dataset))
 
 # DataLoader for batching
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
@@ -67,7 +72,9 @@ test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
 # Define the model, loss function, and optimizer
 input_size = train_data.shape[1] - 1
-hidden_size = 128
+#input_size = 9
+print('input_size: ',input_size)
+hidden_size = 256
 num_classes = len(data[target_column].unique())
 num_embed_features = 2 # Embedding each team
 num_embed_categories = num_teams
@@ -83,16 +90,46 @@ epochs = 10
 for epoch in range(epochs):
     model.train()
     running_loss = 0.0
-    for inputs, cat_inputs, labels in train_loader:
-        print(inputs)
+    for inputs, cat_inputs, labels in test_loader:
         optimizer.zero_grad()
         outputs = model(inputs, cat_inputs)
+        #outputs = model(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+
+    model.eval()
+    running_test_loss = 0.0
+    with torch.no_grad():
+        for inputs, cat_inputs, labels in train_loader:
+            outputs = model(inputs, cat_inputs)
+            #test_outputs = model(test_inputs)
+            loss = criterion(outputs, labels)
+            running_test_loss += loss.item()
     
-    print(f'Epoch [{epoch+1}/{epochs}], Loss: {running_loss/len(train_loader):.4f}')
+    print(f'Epoch [{epoch+1}/{epochs}], Train loss: {running_loss/len(train_loader):.4f}, Test loss: {running_test_loss/len(test_loader):.4f}')
+
+model.eval()
+criterion = nn.CrossEntropyLoss(reduction='none')
+
+train_labels = []
+train_outputs = []
+test_labels = []
+test_outputs = []
+
+for inputs, cat_inputs, labels in train_loader:
+    outputs = model(inputs, cat_inputs)
+    train_labels += labels.tolist()
+    train_outputs += outputs.tolist()
+
+for inputs, cat_inputs, labels in test_loader:
+    outputs = model(inputs, cat_inputs)
+    test_labels += labels.tolist()
+    test_outputs += outputs.tolist()
+
+plt.hist(train_labels)
+plt.savefig('tester.png')
 
 print("Training complete.")
 
