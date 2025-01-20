@@ -29,6 +29,8 @@ class APICaller():
             self.url += 'schedule/{}'
         elif record_type == 'roster':
             self.url += 'roster/{}/{}{}'
+        else:
+            print(f'ERROR: no endpoint associated with the record type {record_type}')
 
     def query(self, record_ids, throw_error=True):
         """
