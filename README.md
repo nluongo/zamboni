@@ -14,6 +14,12 @@ First setup up your environment as you prefer. Then:
 
 ## Download from NHL API
 
+You may first wish to get some familiarity with the API's functionality. The notebook APIWalkthrough.ipynb gives various examples of API calls used by this package.
+
+` jupyter lab notebooks/APIWalkthrough.ipynb `
+
+To download the necessary data to .txt files:
+
 ` python scripts/download_all.py `
 
 ## Load into SQL database
