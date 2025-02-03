@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 from pathlib import Path
+import os
 
 class DBConnector():
     ''' Get connection to SQLite db '''
@@ -20,6 +21,7 @@ class DBConnector():
             logging.info(f'Opening existing DB at {self.db_path}')
         else:
             logging.info(f'Creating new DB at {self.db_path}')
+            os.makedirs(self.db_path, exist_ok=True)
         self.conn = sqlite3.connect(self.db_path)
         return self.conn
 

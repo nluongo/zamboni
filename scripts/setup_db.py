@@ -22,7 +22,7 @@ for table_name in table_names:
 
 for view_name in view_names:
     view_statement = view_statements[view_name]
-    table_creator.create_table(view_statement]
+    table_creator.create_table(view_statement)
 
 con.close()
 
