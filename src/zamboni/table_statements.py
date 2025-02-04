@@ -1,4 +1,27 @@
-create_statements = {
+drop_table_statements = {
+    'players' :
+    """
+    DROP TABLE IF EXISTS players
+    """,
+    'teams' :
+    """
+    DROP TABLE IF EXISTS teams
+    """,
+    'games' :
+    """
+    DROP TABLE IF EXISTS games
+    """,
+    'seaons' :
+    """
+    DROP TABLE IF EXISTS seaons
+    """,
+    'rosterEntries' :
+    """
+    DROP TABLE IF EXISTS rosterEntries
+    """,
+    }
+
+create_table_statements = {
     'players' :
     """
     CREATE TABLE players (

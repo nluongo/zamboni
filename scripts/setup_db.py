@@ -1,4 +1,7 @@
-from zamboni import create_statements, DBConnector, TableCreator
+from zamboni import DBConnector, TableCreator
+import logging
+
+logging.basicConfig(level='INFO')
 
 table_names = [
     'teams',
@@ -17,12 +20,10 @@ con = dbcon.connect_db()
 table_creator = TableCreator(con)
 
 for table_name in table_names:
-    create_statement = create_statements[table_name]
-    table_creator.create_table(create_statement)
+    table_creator.create_table(table_name)
 
 for view_name in view_names:
-    view_statement = view_statements[view_name]
-    table_creator.create_table(view_statement)
+    table_creator.create_table(view_name, is_view=True)
 
 con.close()
 

@@ -1,7 +1,26 @@
-view_statements = {
+drop_view_statements = {
+    'games_per_team' :
+    """
+    DROP VIEW IF EXISTS games_per_team
+    """,
+    'games_with_previous' :
+    """
+    DROP VIEW IF EXISTS games_with_previous
+    """,
+    'games_prev_same_opp' :
+    """
+    DROP VIEW IF EXISTS games_prev_same_opp
+    """,
+    'games_history' :
+    """
+    DROP VIEW IF EXISTS games_history
+    """,
+    }
+
+create_view_statements = {
     'games_per_team' :
     """ 
-    CREATE VIEW IF NOT EXISTS games_per_team
+    CREATE VIEW games_per_team
     AS
     SELECT 
         id AS gameID,
