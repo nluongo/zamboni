@@ -32,7 +32,7 @@ class APICaller():
         else:
             print(f'ERROR: no endpoint associated with the record type {record_type}')
 
-    def query(self, record_ids, throw_error=True):
+    def query(self, record_ids=[], throw_error=True):
         """
         Submit query to NHL API
 

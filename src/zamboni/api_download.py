@@ -1,4 +1,7 @@
 from zamboni import APICaller
+import logging
+
+logging.basicConfig(level='INFO')
 
 def download_games():
     from datetime import datetime, date, timedelta
@@ -31,40 +34,43 @@ def download_games():
             year_str = zero_pad(sched_date.year, 4)
             month_str = zero_pad(sched_date.month, 2)
             day_str = zero_pad(sched_date.day, 2)
-            date_string = [f'{year_str}-{month_str}-{day_str}']
-            output = caller.query(date_string, throw_error=False)
+            date_string = f'{year_str}-{month_str}-{day_str}'
+            logging.info(f'Querying API at date {date_string}')
+            output = caller.query([date_string], throw_error=False)
             if not output:
                 sched_date += day_delta
                 continue
             week = output['gameWeek']
-            day = week[0]
-            games = day['games']
-            if games == []:
-                sched_date += day_delta
-                continue
-            for game in day['games']:
-                try:
-                    api_id = game['id']
-                    season_id = game['season']
-                    datetime.fromisoformat('2011-11-04T00:05:23')
-                    datetime_utc = datetime.fromisoformat(game['startTimeUTC'].replace('Z','+00:00'))
-                    day_of_yr = datetime_utc.timetuple().tm_yday
-                    year = sched_date.year
-                    home_team = game['homeTeam']
-                    home_id = home_team['id']
-                    home_abbrev = home_team['abbrev']
-                    home_goals = home_team['score']
-                    away_team = game['awayTeam']
-                    away_id = away_team['id']
-                    away_abbrev = away_team['abbrev']
-                    away_goals = away_team['score']
-                    type_id = game['gameType']
-                    last_period_type = game['gameOutcome']['lastPeriodType']
-                except KeyError:
+            for day in week:
+                date = day['date']
+                games = day['games']
+                if games == []:
+                    logging.info(f'No games found for date {date}')
                     sched_date += day_delta
                     continue
-                f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_utc.date()}, {day_of_yr}, {year}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
-            sched_date += day_delta
+                for game in day['games']:
+                    try:
+                        api_id = game['id']
+                        season_id = game['season']
+                        datetime.fromisoformat('2011-11-04T00:05:23')
+                        datetime_utc = datetime.fromisoformat(game['startTimeUTC'].replace('Z','+00:00'))
+                        day_of_yr = datetime_utc.timetuple().tm_yday
+                        year = sched_date.year
+                        home_team = game['homeTeam']
+                        home_id = home_team['id']
+                        home_abbrev = home_team['abbrev']
+                        home_goals = home_team['score']
+                        away_team = game['awayTeam']
+                        away_id = away_team['id']
+                        away_abbrev = away_team['abbrev']
+                        away_goals = away_team['score']
+                        type_id = game['gameType']
+                        last_period_type = game['gameOutcome']['lastPeriodType']
+                    except KeyError:
+                        logging.info(f'Error getting data for date {date}')
+                        continue
+                    f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_utc.date()}, {day_of_yr}, {year}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
+                sched_date += day_delta
 
 def download_players():
     caller = APICaller('player')
