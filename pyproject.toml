@@ -16,10 +16,15 @@ dependencies = [
     "matplotlib>=3.9.2",
     "torch>=2.5.1",
     "scikit-learn>=1.5.2",
+    "python-crontab>=3.2.0",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
+
+[project.scripts]
+zamboni-main = "zamboni.main:main"
+download-games = "zamboni.api_download:download_games"
 
 [build-system]
 requires = ["pdm-backend"]

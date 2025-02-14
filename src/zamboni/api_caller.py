@@ -4,7 +4,7 @@ class APICaller():
     """ Class for querying the NHL API """
     url_base = 'https://api-web.nhle.com/v1/'
 
-    def __init__(self, record_type):
+    def __init__(self):
         """
         Set URL variables and record type
 
@@ -12,8 +12,6 @@ class APICaller():
         """
         self.url_base = APICaller.url_base
         self.url = self.url_base
-        self.record_type = record_type
-        self.set_url_template(record_type)
 
     def set_url_template(self, record_type):
         """
@@ -32,7 +30,7 @@ class APICaller():
         else:
             print(f'ERROR: no endpoint associated with the record type {record_type}')
 
-    def query(self, record_ids=[], throw_error=True):
+    def query(self, record_type=None, record_ids=[], throw_error=True):
         """
         Submit query to NHL API
 
@@ -40,7 +38,12 @@ class APICaller():
         :param throw_error: Flag to throw error if query returns nothing
         :returns: JSON of API output
         """
-        url = self.url.format(*record_ids)
+        # If no record type given, then query with raw URL ending given
+        if not record_type:
+            url = self.url_base + record_ids[0]
+        else:
+            self.set_url_template(record_type)
+            url = self.url.format(*record_ids)
         try:
             api_out = requests.get(url)
         except requests.exceptions.JSONDecodeError:

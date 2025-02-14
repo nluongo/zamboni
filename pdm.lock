@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["cross_platform"]
 lock_version = "4.5.0"
-content_hash = "sha256:5100cce81a8cec61f179a90e95ba60d7414e0d8022072ee9e6126137c03df160"
+content_hash = "sha256:bd97b583a91eb4f1c83387a4320e4f8c3bf3816eabb9a8df110ac4d2d455e18f"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -1508,6 +1508,18 @@ dependencies = [
 files = [
     {file = "pytest-8.3.3-py3-none-any.whl", hash = "sha256:a6853c7375b2663155079443d2e45de913a911a11d669df02a50814944db57b2"},
     {file = "pytest-8.3.3.tar.gz", hash = "sha256:70b98107bd648308a7952b06e6ca9a50bc660be218d53c257cc1fc94fda10181"},
+]
+
+[[package]]
+name = "python-crontab"
+version = "3.2.0"
+summary = "Python Crontab API"
+dependencies = [
+    "python-dateutil",
+]
+files = [
+    {file = "python_crontab-3.2.0-py3-none-any.whl", hash = "sha256:82cb9b6a312d41ff66fd3caf3eed7115c28c195bfb50711bc2b4b9592feb9fe5"},
+    {file = "python_crontab-3.2.0.tar.gz", hash = "sha256:40067d1dd39ade3460b2ad8557c7651514cd3851deffff61c5c60e1227c5c36b"},
 ]
 
 [[package]]

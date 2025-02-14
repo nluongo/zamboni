@@ -3,15 +3,15 @@ import logging
 
 logging.basicConfig(level='INFO')
 
-def download_games():
+def download_games(out_path='data/games.txt'):
     from datetime import datetime, date, timedelta
     
-    caller = APICaller('game')
+    caller = APICaller()
     
     # Per Wikipedia, the first NHL game
     #sched_date = date(1917, 12, 19)
     # Do not download entire history during R&D phase
-    sched_date = date(2020, 7, 1)
+    sched_date = date(2023, 7, 1)
     day_delta = timedelta(days=1)
     
     today_date = date.today()
@@ -20,23 +20,26 @@ def download_games():
         padded_value = padder * (length - len(str(to_pad))) + str(to_pad)
         return padded_value
     
-    with open('data/games.txt', 'a+') as f:
+    with open(out_path, 'a+') as f:
         f.seek(0)
         lines = f.readlines()
         if len(lines) > 0:
             for line in lines:
                 pass
             last_line = line
-            date = last_line.split(',')[4].strip()
+            date = last_line.split(',')[6].strip()
             last_date = datetime.fromisoformat(date).date()
             sched_date = last_date + day_delta
-        while sched_date <= today_date:
+            logging.info(f'Starting download at date {sched_date}')
+        else:
+            logging.info('No games downloaded, starting at the beginning..')
+        while sched_date < today_date:
             year_str = zero_pad(sched_date.year, 4)
             month_str = zero_pad(sched_date.month, 2)
             day_str = zero_pad(sched_date.day, 2)
             date_string = f'{year_str}-{month_str}-{day_str}'
             logging.info(f'Querying API at date {date_string}')
-            output = caller.query([date_string], throw_error=False)
+            output = caller.query('games', [date_string], throw_error=False)
             if not output:
                 sched_date += day_delta
                 continue
@@ -54,7 +57,11 @@ def download_games():
                         season_id = game['season']
                         datetime.fromisoformat('2011-11-04T00:05:23')
                         datetime_utc = datetime.fromisoformat(game['startTimeUTC'].replace('Z','+00:00'))
-                        day_of_yr = datetime_utc.timetuple().tm_yday
+                        timezone_offset = game['venueUTCOffset']
+                        hour_offset, minute_offset = timezone_offset.split(':')
+                        offset = timedelta(hours=int(hour_offset), minutes=int(minute_offset))
+                        datetime_local = datetime_utc + offset
+                        day_of_yr = datetime_local.timetuple().tm_yday
                         year = sched_date.year
                         home_team = game['homeTeam']
                         home_id = home_team['id']
@@ -69,11 +76,11 @@ def download_games():
                     except KeyError:
                         logging.info(f'Error getting data for date {date}')
                         continue
-                    f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_utc.date()}, {day_of_yr}, {year}, {datetime_utc.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
+                    f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_local.date()}, {day_of_yr}, {year}, {datetime_local.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
                 sched_date += day_delta
 
-def download_players():
-    caller = APICaller('player')
+def download_players(out_path='data/players.txt'):
+    caller = APICaller()
     
     #api_id = 8475104
     api_id = 8440000
@@ -84,7 +91,7 @@ def download_players():
     step = 1
     with open('data/players.txt', 'w') as f:
         while api_id < end_id:
-            player = caller.query([api_id], throw_error=False)
+            player = caller.query('players', [api_id], throw_error=False)
             if not player:
                 if api_id%step == 0:
                     print(api_id)
@@ -105,10 +112,10 @@ def download_players():
             f.write(write_string+'\n')
             api_id += 1
 
-def download_rosters():
+def download_rosters(out_path='data/rosterEntries.txt'):
     from datetime import datetime
     
-    caller = APICaller('roster')
+    caller = APICaller()
     
     with open('data/teams.txt', 'r') as f_teams:
         team_lines = f_teams.readlines()
@@ -123,7 +130,7 @@ def download_rosters():
             end_year = start_year + 1
             for team in team_abbrevs:
                 api_ids = [team, start_year, end_year]
-                out = caller.query(api_ids, throw_error=False)
+                out = caller.query('roster', api_ids, throw_error=False)
                 if out is None:
                     continue
                 forwards = out['forwards']
@@ -139,10 +146,10 @@ def download_rosters():
                     roster_f.write(entry_str)
             start_year += 1
 
-def download_teams():
-    caller = APICaller('standings')
+def download_teams(out_path='data/teams.txt'):
+    caller = APICaller()
     
-    info_json = caller.query()
+    info_json = caller.query('standings')
     
     standings = info_json['standings']
     with open('data/teams.txt', 'w') as f:
@@ -153,3 +160,13 @@ def download_teams():
             div_abbrev = team['divisionAbbrev']
             team_str = f'{team_name}, {team_abbrev}, {conf_abbrev}, {div_abbrev}\n'
             f.write(team_str)
+
+def main():
+    download_teams()
+    download_games()
+    download_players()
+    download_roster()
+
+if __name__ == '__main__':
+    main()
+    

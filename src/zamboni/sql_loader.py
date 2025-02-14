@@ -2,12 +2,15 @@ from zamboni.db_con import DBConnector
 
 class SQLLoader():
     ''' Load information from text files into SQLite database '''
-    def __init__(self, txt_dir='data'):
+    def __init__(self, txt_dir='data', db_connector=None):
         '''
         Establish connection to db
         '''
         self.txt_dir = txt_dir
-        self.db = DBConnector()
+        if not db_connector:
+            self.db_connector = DBConnector()
+        else:
+            self.db_connector = db_connector
         self.team_id_dict = defaultdict(lambda: 'Undefined')
 
     def get_team_id(id_dict, team_abbrev):
@@ -16,7 +19,7 @@ class SQLLoader():
         '''
         if id_dict[team_abbrev] == 'Undefined':
             query_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
-            query_res = self.db.cursor.execute(query_sql)
+            query_res = self.db_connector.cursor.execute(query_sql)
             query_out = query_res.fetchone()
             if query_out:
                 team_id = query_out[0]
@@ -61,8 +64,8 @@ class SQLLoader():
                                "{last_period_type}", \
                                "{outcome}" \
                                )'''
-                self.db.cursor.execute(sql)
-            self.db.conn.commit()
+                self.db_connector.cursor.execute(sql)
+            self.db_connector.conn.commit()
 
     def load_players(self, txt_path=None):
         '''
@@ -77,8 +80,8 @@ class SQLLoader():
                 api_id, full_name, first_name, last_name, number, position = line
                 sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
                         VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
-                self.db.cursor.execute(sql)
-            self.db.conn.commit()
+                self.db_connector.cursor.execute(sql)
+            self.db_connector.conn.commit()
         
     def load_roster_entries(self, txt_path=None):
         '''
@@ -92,7 +95,7 @@ class SQLLoader():
                 api_id, team_abbrev, year, first_name, last_name, start_year, end_year = line
         
                 team_id_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
-                team_id_res = self.db.cursor.execute(team_id_sql)
+                team_id_res = self.db_connector.cursor.execute(team_id_sql)
                 team_id_fetch = team_id_res.fetchone()
                 if team_id_fetch is None:
                     print('No team found with name {team_abbrev}, skipping record')
@@ -100,7 +103,7 @@ class SQLLoader():
                 team_id = team_id_fetch[0]
         
                 player_id_sql = f'''SELECT id FROM players WHERE firstName="{first_name}" AND lastName="{last_name}"'''
-                player_id_res = self.db.cursor.execute(player_id_sql)
+                player_id_res = self.db_connector.cursor.execute(player_id_sql)
                 player_id_fetch = player_id_res.fetchone()
                 if player_id_fetch is None:
                     print(f'No player found with name {first_name} {last_name}, skipping record')
@@ -109,8 +112,8 @@ class SQLLoader():
         
                 sql = f'''INSERT INTO rosterEntries(apiID, playerID, teamID, seasonID, startYear, endYear)
                         VALUES("{api_id}", "{player_id}", "{team_id}", "{year}", "{start_year}", "{end_year}")'''
-                self.db.cursor.execute(sql)
-            self.db.conn.commit()
+                self.db_connector.cursor.execute(sql)
+            self.db_connector.conn.commit()
 
     def load_teams(self, txt_path=None):
         '''
@@ -125,5 +128,5 @@ class SQLLoader():
                 team_name, name_abbrev, conf_abbrev, div_abbrev = split_line
                 sql = f'''INSERT INTO teams(name, nameAbbrev, conferenceAbbrev, divisionAbbrev)
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
-                self.db.cursor.execute(sql)
-            self.db.conn.commit()
+                self.db_connector.cursor.execute(sql)
+            self.db_connector.conn.commit()

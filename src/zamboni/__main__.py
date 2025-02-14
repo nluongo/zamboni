@@ -1,2 +1,3 @@
-print('Hello world')
-print('Test')
+from zamboni import main
+
+main()
