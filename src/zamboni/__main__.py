@@ -1,3 +1,3 @@
-from zamboni import main
+from zamboni.main import main
 
 main()

@@ -3,7 +3,7 @@ import logging
 
 logging.basicConfig(level='INFO')
 
-def download_games(out_path='data/games.txt'):
+def download_games(start_year=2023, out_path='data/games.txt'):
     from datetime import datetime, date, timedelta
     
     caller = APICaller()
@@ -11,7 +11,7 @@ def download_games(out_path='data/games.txt'):
     # Per Wikipedia, the first NHL game
     #sched_date = date(1917, 12, 19)
     # Do not download entire history during R&D phase
-    sched_date = date(2023, 7, 1)
+    sched_date = date(start_year, 7, 1)
     day_delta = timedelta(days=1)
     
     today_date = date.today()
@@ -39,7 +39,7 @@ def download_games(out_path='data/games.txt'):
             day_str = zero_pad(sched_date.day, 2)
             date_string = f'{year_str}-{month_str}-{day_str}'
             logging.info(f'Querying API at date {date_string}')
-            output = caller.query('games', [date_string], throw_error=False)
+            output = caller.query('game', [date_string], throw_error=False)
             if not output:
                 sched_date += day_delta
                 continue
@@ -91,7 +91,7 @@ def download_players(out_path='data/players.txt'):
     step = 1
     with open('data/players.txt', 'w') as f:
         while api_id < end_id:
-            player = caller.query('players', [api_id], throw_error=False)
+            player = caller.query('player', [api_id], throw_error=False)
             if not player:
                 if api_id%step == 0:
                     print(api_id)
@@ -112,7 +112,7 @@ def download_players(out_path='data/players.txt'):
             f.write(write_string+'\n')
             api_id += 1
 
-def download_rosters(out_path='data/rosterEntries.txt'):
+def download_rosters(start_year=2023, out_path='data/rosterEntries.txt'):
     from datetime import datetime
     
     caller = APICaller()
@@ -138,7 +138,6 @@ def download_rosters(out_path='data/rosterEntries.txt'):
                 goalies = out['goalies']
                 players = forwards + defensemen + goalies
                 for player in players:
-                    print(player)
                     first_name = player['firstName']['default']
                     last_name = player['lastName']['default']
                     api_id = player['id']
@@ -161,11 +160,11 @@ def download_teams(out_path='data/teams.txt'):
             team_str = f'{team_name}, {team_abbrev}, {conf_abbrev}, {div_abbrev}\n'
             f.write(team_str)
 
-def main():
+def main(start_year=2023):
     download_teams()
-    download_games()
-    download_players()
-    download_roster()
+    download_games(start_year=start_year)
+    #download_players()
+    download_rosters(start_year=start_year)
 
 if __name__ == '__main__':
     main()

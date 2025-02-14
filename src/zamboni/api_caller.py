@@ -11,7 +11,6 @@ class APICaller():
         :param record_type: The type of record to be requested
         """
         self.url_base = APICaller.url_base
-        self.url = self.url_base
 
     def set_url_template(self, record_type):
         """
@@ -20,13 +19,13 @@ class APICaller():
         :param record_type: The type of record to be requested
         """
         if record_type == 'standings':
-            self.url += 'standings/now' 
+            self.url = self.url_base + 'standings/now' 
         elif record_type == 'player':
-            self.url += 'player/{}/landing' 
+            self.url = self.url_base + 'player/{}/landing' 
         elif record_type == 'game':
-            self.url += 'schedule/{}'
+            self.url = self.url_base + 'schedule/{}'
         elif record_type == 'roster':
-            self.url += 'roster/{}/{}{}'
+            self.url = self.url_base + 'roster/{}/{}{}'
         else:
             print(f'ERROR: no endpoint associated with the record type {record_type}')
 
