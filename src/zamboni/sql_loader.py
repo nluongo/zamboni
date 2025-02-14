@@ -3,17 +3,16 @@ from collections import defaultdict
 
 class SQLLoader():
     ''' Load information from text files into SQLite database '''
-    def __init__(self, txt_dir='data', db_connector=None):
+    def __init__(self, txt_dir='data', db_con=None):
         '''
         Establish connection to db
         '''
         self.txt_dir = txt_dir
-        if not db_connector:
-            self.db_connector = DBConnector()
+        if not db_con:
+            db_connector = DBConnector()
+            self.db_con = db_connector.connect_db()
         else:
-            self.db_connector = db_connector
-        self.conn = db_connector.connect_db()
-        self.cursor = self.conn.cursor()
+            self.db_con = db_con
         self.team_id_dict = defaultdict(lambda: 'Undefined')
 
     def get_team_id(self, id_dict, team_abbrev):
@@ -22,7 +21,8 @@ class SQLLoader():
         '''
         if id_dict[team_abbrev] == 'Undefined':
             query_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
-            query_res = self.cursor.execute(query_sql)
+            with self.db_con as cursor:
+                query_res = cursor.execute(query_sql)
             query_out = query_res.fetchone()
             if query_out:
                 team_id = query_out[0]
@@ -39,7 +39,7 @@ class SQLLoader():
         '''
         if not txt_path:
             txt_path = f'{self.txt_dir}/games.txt'
-        with open(txt_path, 'r') as f:
+        with open(txt_path, 'r') as f, self.db_con as cursor:
             for line in f.readlines():
                 split_line = line.split(',')
                 split_line = [entry.strip() for entry in split_line]
@@ -67,8 +67,7 @@ class SQLLoader():
                                "{last_period_type}", \
                                "{outcome}" \
                                )'''
-                self.cursor.execute(sql)
-            self.db_connector.conn.commit()
+                cursor.execute(sql)
 
     def load_players(self, txt_path=None):
         '''
@@ -76,7 +75,7 @@ class SQLLoader():
         '''
         if not txt_path:
             txt_path = f'{self.txt_dir}/players.txt'
-        with open(txt_path) as f:
+        with open(txt_path) as f, self.db_con as cursor:
             for line in f.readlines():
                 line = [entry.strip() for entry in line.split(',')]
                 print(line)
@@ -92,7 +91,7 @@ class SQLLoader():
         '''
         if not txt_path:
             txt_path = f'{self.txt_dir}/rosterEntries.txt'
-        with open(txt_path, 'r') as f:
+        with open(txt_path, 'r') as f, self.db_con as cursor:
             for line in f.readlines():
                 line = [entry.strip() for entry in line.split(',')]
                 api_id, team_abbrev, year, first_name, last_name, start_year, end_year = line
@@ -116,7 +115,6 @@ class SQLLoader():
                 sql = f'''INSERT INTO rosterEntries(apiID, playerID, teamID, seasonID, startYear, endYear)
                         VALUES("{api_id}", "{player_id}", "{team_id}", "{year}", "{start_year}", "{end_year}")'''
                 self.cursor.execute(sql)
-            self.db_connector.conn.commit()
 
     def load_teams(self, txt_path=None):
         '''
@@ -124,12 +122,11 @@ class SQLLoader():
         '''
         if not txt_path:
             txt_path = f'{self.txt_dir}/teams.txt'
-        with open(txt_path) as f:
+        with open(txt_path) as f, self.db_con as cursor:
             for line in f.readlines():
                 split_line = line.split(',')
                 split_line = [entry.strip() for entry in split_line]
                 team_name, name_abbrev, conf_abbrev, div_abbrev = split_line
                 sql = f'''INSERT INTO teams(name, nameAbbrev, conferenceAbbrev, divisionAbbrev)
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
-                self.cursor.execute(sql)
-            self.db_connector.conn.commit()
+                cursor.execute(sql)
