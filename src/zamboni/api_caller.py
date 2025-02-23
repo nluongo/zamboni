@@ -19,7 +19,7 @@ class APICaller():
         :param record_type: The type of record to be requested
         """
         if record_type == 'standings':
-            self.url = self.url_base + 'standings/now' 
+            self.url = self.url_base + 'standings/{}' 
         elif record_type == 'player':
             self.url = self.url_base + 'player/{}/landing' 
         elif record_type == 'game':

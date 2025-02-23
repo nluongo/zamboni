@@ -1,10 +1,12 @@
 from zamboni import APICaller
+from datetime import datetime, date, timedelta
 import logging
 
+print('Here')
 logging.basicConfig(level='INFO')
+today_date = date.today()
 
-def download_games(start_year=2023, out_path='data/games.txt'):
-    from datetime import datetime, date, timedelta
+def download_games(start_year=2024, out_path='data/games.txt'):
     
     caller = APICaller()
     
@@ -14,8 +16,6 @@ def download_games(start_year=2023, out_path='data/games.txt'):
     sched_date = date(start_year, 7, 1)
     day_delta = timedelta(days=1)
     
-    today_date = date.today()
-    
     def zero_pad(to_pad, length, padder='0'):
         padded_value = padder * (length - len(str(to_pad))) + str(to_pad)
         return padded_value
@@ -23,12 +23,13 @@ def download_games(start_year=2023, out_path='data/games.txt'):
     with open(out_path, 'a+') as f:
         f.seek(0)
         lines = f.readlines()
+        # Start at date of latest game in file
         if len(lines) > 0:
             for line in lines:
                 pass
             last_line = line
-            date = last_line.split(',')[6].strip()
-            last_date = datetime.fromisoformat(date).date()
+            game_date = last_line.split(',')[6].strip()
+            last_date = datetime.fromisoformat(game_date).date()
             sched_date = last_date + day_delta
             logging.info(f'Starting download at date {sched_date}')
         else:
@@ -45,10 +46,10 @@ def download_games(start_year=2023, out_path='data/games.txt'):
                 continue
             week = output['gameWeek']
             for day in week:
-                date = day['date']
+                day_date = day['date']
                 games = day['games']
                 if games == []:
-                    logging.info(f'No games found for date {date}')
+                    logging.info(f'No games found for date {day_date}')
                     sched_date += day_delta
                     continue
                 for game in day['games']:
@@ -74,7 +75,7 @@ def download_games(start_year=2023, out_path='data/games.txt'):
                         type_id = game['gameType']
                         last_period_type = game['gameOutcome']['lastPeriodType']
                     except KeyError:
-                        logging.info(f'Error getting data for date {date}')
+                        logging.info(f'Error getting data for date {day_date}')
                         continue
                     f.write(f'{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_local.date()}, {day_of_yr}, {year}, {datetime_local.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n')
                 sched_date += day_delta
@@ -112,7 +113,7 @@ def download_players(out_path='data/players.txt'):
             f.write(write_string+'\n')
             api_id += 1
 
-def download_rosters(start_year=2023, out_path='data/rosterEntries.txt'):
+def download_rosters(start_year=2024, out_path='data/rosterEntries.txt'):
     from datetime import datetime
     
     caller = APICaller()
@@ -122,12 +123,12 @@ def download_rosters(start_year=2023, out_path='data/rosterEntries.txt'):
         team_lines = [line.split(',') for line in team_lines]
         team_abbrevs = [line[1].strip() for line in team_lines]
     
-    start_year = 1900
     end_year = start_year + 1
     
     with open('data/rosterEntries.txt', 'a') as roster_f:
         while start_year < datetime.now().year:
             end_year = start_year + 1
+            logging.info(f'Querying API for {start_year}-{end_year} season rosters')
             for team in team_abbrevs:
                 api_ids = [team, start_year, end_year]
                 out = caller.query('roster', api_ids, throw_error=False)
@@ -145,23 +146,34 @@ def download_rosters(start_year=2023, out_path='data/rosterEntries.txt'):
                     roster_f.write(entry_str)
             start_year += 1
 
-def download_teams(out_path='data/teams.txt'):
+def download_teams(start_year=2024, out_path='data/teams.txt'):
     caller = APICaller()
     
-    info_json = caller.query('standings')
+    query_year = start_year
+    cur_year = today_date.year
+    teams_to_write = set()
+    while query_year <= cur_year:
+        query_date = f'{query_year}-12-31'
+        logging.info(f'Querying API for teams during {query_year}-{query_year+1} season')
+        info_json = caller.query('standings', [query_date])
     
-    standings = info_json['standings']
-    with open('data/teams.txt', 'w') as f:
+        standings = info_json['standings']
+
         for team in standings:
             team_name = team['teamName']['default']
             team_abbrev = team['teamAbbrev']['default']
             conf_abbrev = team['conferenceAbbrev']
             div_abbrev = team['divisionAbbrev']
             team_str = f'{team_name}, {team_abbrev}, {conf_abbrev}, {div_abbrev}\n'
+            teams_to_write.add(team_str)
+        query_year += 1
+
+    with open('data/teams.txt', 'w') as f:
+        for team_str in teams_to_write:
             f.write(team_str)
 
-def main(start_year=2023):
-    download_teams()
+def main(start_year=2024):
+    download_teams(start_year=start_year)
     download_games(start_year=start_year)
     #download_players()
     download_rosters(start_year=start_year)

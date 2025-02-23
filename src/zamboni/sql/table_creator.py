@@ -1,5 +1,5 @@
-from zamboni.table_statements import create_table_statements, drop_table_statements
-from zamboni.view_statements import create_view_statements, drop_view_statements
+from .table_statements import create_table_statements, drop_table_statements
+from .view_statements import create_view_statements, drop_view_statements
 
 class TableCreator():
     ''' Class to create tables in SQLite db '''

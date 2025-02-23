@@ -52,7 +52,29 @@ class SQLLoader():
                     outcome = 0
                 else:
                     outcome = -1
-                sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome)
+                if last_period_type == 'OT':
+                    in_ot = 1
+                else:
+                    in_ot = 0
+                exists_sql = f'SELECT 1 FROM games ' \
+                        f'WHERE apiID={api_id} ' \
+                        f'AND seasonID={season_id} ' \
+                        f'AND homeTeamID={home_team_id} ' \
+                        f'AND awayTeamID={away_team_id} ' \
+                        f'AND datePlayed="{date_played}" ' \
+                        f'AND dayOfYrPlayed={day_of_year_played} ' \
+                        f'AND yrPlayed={year_played} ' \
+                        f'AND timePlayed="{time_played}" ' \
+                        f'AND homeTeamGoals={home_team_goals} ' \
+                        f'AND awayTeamGoals={away_team_goals} ' \
+                        f'AND gameTypeID={game_type} ' \
+                        f'AND lastPeriodTypeID="{last_period_type}" ' \
+                        f'AND outcome={outcome} ' \
+                        f'AND inOT={in_ot}'
+                exists_res = cursor.execute(exists_sql).fetchone()
+                if exists_res:
+                    continue
+                sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT)
                         VALUES("{api_id}", \
                                "{season_id}", \
                                "{home_team_id}", \
@@ -65,7 +87,8 @@ class SQLLoader():
                                "{away_team_goals}", \
                                "{game_type}", \
                                "{last_period_type}", \
-                               "{outcome}" \
+                               "{outcome}", \
+                               "{in_ot}" \
                                )'''
                 cursor.execute(sql)
 
@@ -78,7 +101,6 @@ class SQLLoader():
         with open(txt_path) as f, self.db_con as cursor:
             for line in f.readlines():
                 line = [entry.strip() for entry in line.split(',')]
-                print(line)
                 api_id, full_name, first_name, last_name, number, position = line
                 sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
                         VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
