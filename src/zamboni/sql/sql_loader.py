@@ -1,5 +1,8 @@
 from zamboni.db_con import DBConnector
 from collections import defaultdict
+from datetime import date
+
+today_date = date.today()
 
 class SQLLoader():
     ''' Load information from text files into SQLite database '''
@@ -44,6 +47,7 @@ class SQLLoader():
                 split_line = line.split(',')
                 split_line = [entry.strip() for entry in split_line]
                 api_id, season_id, home_api_id, home_team_abbrev, away_api_id, away_team_abbrev, date_played, day_of_year_played, year_played, time_played, home_team_goals, away_team_goals, game_type, last_period_type = split_line
+                cur_date = str(today_date)
                 home_team_id = self.get_team_id(self.team_id_dict, home_team_abbrev)
                 away_team_id = self.get_team_id(self.team_id_dict, away_team_abbrev)
                 if home_team_goals > away_team_goals:
@@ -74,7 +78,7 @@ class SQLLoader():
                 exists_res = cursor.execute(exists_sql).fetchone()
                 if exists_res:
                     continue
-                sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT)
+                sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
                         VALUES("{api_id}", \
                                "{season_id}", \
                                "{home_team_id}", \
@@ -88,7 +92,8 @@ class SQLLoader():
                                "{game_type}", \
                                "{last_period_type}", \
                                "{outcome}", \
-                               "{in_ot}" \
+                               "{in_ot}", \
+                               "{cur_date}"
                                )'''
                 cursor.execute(sql)
 
@@ -152,3 +157,14 @@ class SQLLoader():
                 sql = f'''INSERT INTO teams(name, nameAbbrev, conferenceAbbrev, divisionAbbrev)
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
                 cursor.execute(sql)
+
+    def set_game_export_date(self):
+        '''
+        Update the date in gamesLastExport with current date
+        '''
+        cur_date = str(today_date)
+        delete_sql = f'''DELETE FROM gamesLastExport'''
+        insert_sql = f'''INSERT INTO gamesLastExport(lastExportDate) VALUES("{cur_date}")'''
+        with self.db_con as cursor:
+            cursor.execute(delete_sql)
+            cursor.execute(insert_sql)

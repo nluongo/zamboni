@@ -19,12 +19,16 @@ drop_table_statements = {
     """
     DROP TABLE IF EXISTS rosterEntries
     """,
+    'gamesLastExport' :
+    """
+    DROP TABLE IF EXISTS gamesLastExport
+    """,
     }
 
 create_table_statements = {
     'players' :
     """
-    CREATE TABLE players (
+    CREATE TABLE IF NOT EXISTS players (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
         name TEXT,
@@ -36,7 +40,7 @@ create_table_statements = {
     """,
     'teams' :
     """
-    CREATE TABLE teams (
+    CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
         name TEXT,
@@ -47,7 +51,7 @@ create_table_statements = {
     """,
     'games' :
     """
-    CREATE TABLE games (
+    CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
         seasonID INTEGER,
@@ -62,12 +66,13 @@ create_table_statements = {
         gameTypeID INTEGER,
         lastPeriodTypeID INTEGER,
         outcome INTEGER,
-        inOT INTEGER
+        inOT INTEGER,
+        recordCreated INTEGER
         )
     """,
     'seasons' :
     """
-    CREATE TABLE seasons (
+    CREATE TABLE IF NOT EXISTS seasons (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
         startYear INTEGER,
@@ -76,7 +81,7 @@ create_table_statements = {
     """,
     'rosterEntries' :
     """
-    CREATE TABLE rosterEntries (
+    CREATE TABLE IF NOT EXISTS rosterEntries (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
         playerID INTEGER,
@@ -85,5 +90,11 @@ create_table_statements = {
         startYear INTEGER,
         endYear INTEGER
         )
+    """,
+    'gamesLastExport' :
     """
+    CREATE TABLE IF NOT EXISTS gamesLastExport (
+        lastExportDate INTEGER
+        )
+    """,
     }

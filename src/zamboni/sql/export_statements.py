@@ -15,7 +15,8 @@ export_statements = {
         IFNULL(gpso.prevOutcome, 0) AS prevMatchupOutcome,
         IFNULL(gpso.prevInOT, 0) AS prevMatchupInOT,
         CASE WHEN gpso.prevOutcome IS NULL THEN 0 ELSE 1 END AS hasPreviousMatchup,
-        games.outcome
+        games.outcome,
+        games.inOT
     FROM games
     LEFT OUTER JOIN games_history hgh
         ON games.id=hgh.gameID AND games.homeTeamID=hgh.teamID
@@ -32,5 +33,11 @@ export_statements = {
            yrPlayed,
            outcome
        FROM games
+    """,
+    'games_last_export' :
+    """
+    SELECT lastExportDate
+    FROM gamesLastExport
+    LIMIT 1
     """,
     }

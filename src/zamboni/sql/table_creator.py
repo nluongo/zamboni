@@ -12,7 +12,7 @@ class TableCreator():
         '''
         self.con = con
 
-    def create_table(self, table_name, recreate=True, is_view=False):
+    def create_table(self, table_name, recreate=False, is_view=False):
         '''
         Connect to db and create table
 

@@ -20,7 +20,7 @@ drop_view_statements = {
 create_view_statements = {
     'games_per_team' :
     """ 
-    CREATE VIEW games_per_team
+    CREATE VIEW IF NOT EXISTS games_per_team
     AS
     SELECT 
         id AS gameID,
@@ -103,7 +103,7 @@ create_view_statements = {
 # This holds summarized historical information for each game and team
     'games_history':
         """
-    CREATE VIEW games_history 
+    CREATE VIEW IF NOT EXISTS games_history 
     AS
     SELECT 
         gameID,

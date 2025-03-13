@@ -2,7 +2,6 @@ from zamboni import APICaller
 from datetime import datetime, date, timedelta
 import logging
 
-print('Here')
 logging.basicConfig(level='INFO')
 today_date = date.today()
 
