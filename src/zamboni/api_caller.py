@@ -45,11 +45,37 @@ class APICaller():
             url = self.url.format(*record_ids)
         try:
             api_out = requests.get(url)
-        except requests.exceptions.JSONDecodeError:
+            api_out.raise_for_status()  # Raise an HTTPError for bad responses
+            json = api_out.json()
+        except requests.exceptions.HTTPError as http_err:
             if throw_error:
-                raise ValueError(f'Failed to query {url}')
+                raise ValueError(f'HTTP error occurred: {http_err}') from http_err
             else:
-                api_out = None
-        json = api_out.json() if api_out else None
-        return json    
-        
+                print(f'HTTP error occurred: {http_err}')
+                json = None
+        except requests.exceptions.ConnectionError as conn_err:
+            if throw_error:
+                raise ValueError(f'Connection error occurred: {conn_err}') from conn_err
+            else:
+                print(f'Connection error occurred: {conn_err}')
+                json = None
+        except requests.exceptions.Timeout as timeout_err:
+            if throw_error:
+                raise ValueError(f'Timeout error occurred: {timeout_err}') from timeout_err
+            else:
+                print(f'Timeout error occurred: {timeout_err}')
+                json = None
+        except requests.exceptions.RequestException as req_err:
+            if throw_error:
+                raise ValueError(f'An error occurred: {req_err}') from req_err
+            else:
+                print(f'An error occurred: {req_err}')
+                json = None
+        except ValueError as json_err:
+            if throw_error:
+                raise ValueError(f'JSON decode error: {json_err}') from json_err
+            else:
+                print(f'JSON decode error: {json_err}')
+                json = None
+        return json
+

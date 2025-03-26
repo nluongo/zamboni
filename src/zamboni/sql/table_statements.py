@@ -23,6 +23,10 @@ drop_table_statements = {
     """
     DROP TABLE IF EXISTS gamesLastExport
     """,
+    'lastTraining' :
+    """
+    DROP TABLE IF EXISTS lastTraining
+    """,
     }
 
 create_table_statements = {
@@ -95,6 +99,12 @@ create_table_statements = {
     """
     CREATE TABLE IF NOT EXISTS gamesLastExport (
         lastExportDate INTEGER
+        )
+    """,
+    'lastTraining' :
+    """
+    CREATE TABLE IF NOT EXISTS lastTraining (
+        lastTrainingDate INTEGER
         )
     """,
     }

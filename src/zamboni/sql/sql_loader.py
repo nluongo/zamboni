@@ -158,13 +158,47 @@ class SQLLoader():
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
                 cursor.execute(sql)
 
+    def set_action_date(self, table_name, column_name, date=today_date):
+        '''
+        Set the date in a table tracking last action taken
+        '''
+        update_date = str(date)
+        delete_sql = f'''DELETE FROM {table_name}'''
+        insert_sql = f'''INSERT INTO {table_name}({column_name}) VALUES("{update_date}")'''
+        with self.db_con as cursor:
+            cursor.execute(delete_sql)
+            cursor.execute(insert_sql)
+
+    def get_action_date(self, table_name, column_name):
+        '''
+        Read the action date from a table
+        '''
+        select_sql = f'''SELECT {column_name} FROM {table_name} LIMIT 1'''
+        with self.db_con as cursor:
+            query_res = cursor.execute(select_sql)
+        out = query_res.fetchone()
+        return out
+
     def set_game_export_date(self):
         '''
         Update the date in gamesLastExport with current date
         '''
-        cur_date = str(today_date)
-        delete_sql = f'''DELETE FROM gamesLastExport'''
-        insert_sql = f'''INSERT INTO gamesLastExport(lastExportDate) VALUES("{cur_date}")'''
-        with self.db_con as cursor:
-            cursor.execute(delete_sql)
-            cursor.execute(insert_sql)
+        self.set_action_date("gamesLastExport", "lastExportDate")
+
+    def set_game_export_date(self):
+        '''
+        Read the date in gamesLastExport
+        '''
+        self.get_action_date('gamesLastExport', 'lastExportDate')
+
+    def set_last_training_date(self):
+        '''
+        Update the date in lastTraining with current date
+        '''
+        self.set_action_date("lastTraining", "lastTrainingDate")
+
+    def get_last_training_date(self):
+        '''
+        Read the date in lastTraining
+        '''
+        self.get_action_date('lastTraining', 'lastTrainingDate')

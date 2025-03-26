@@ -12,7 +12,7 @@ class Exporter():
         """
         Initialize Exporter
 
-        :param conn: Connecti
+        :param conn: Connection
         """
         if not con:
             self.db_connector = DBConnector()
@@ -47,7 +47,7 @@ class Exporter():
         df = pd.read_sql(sql, self.con)
         df.to_parquet(dest)
 
-    def games_export(self, dest='data/games.parquet', after_date=None):
+    def export_games(self, dest='data/games.parquet', after_date=None):
         """
         Export games information with recency selection
         """

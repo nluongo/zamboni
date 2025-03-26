@@ -20,6 +20,7 @@ class EmbeddingNN(nn.Module):
         super(EmbeddingNN, self).__init__()
         # Only embedding teams, so use common embedding for home and away
         self.num_embed_features = num_embed_features
+        self.num_classes = num_classes
         self.team_embedding = nn.Embedding(num_embed_categories, embed_dim)
         continuous_inputs = input_size - num_embed_features
         category_inputs = num_embed_features * embed_dim
