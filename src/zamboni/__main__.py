@@ -1,3 +1,3 @@
-from zamboni.main import main
+from zamboni.main import cli
 
-main()
+cli()
