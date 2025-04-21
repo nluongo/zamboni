@@ -1,12 +1,11 @@
 import logging
 import os
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils.validation import check_is_fitted
 from zamboni.api_download import main as download_main
 from zamboni import SQLLoader, Exporter, DBConnector, TableCreator
 from zamboni.data_management import ZamboniDataManager, ZamboniData, ColumnTracker
 from zamboni.training import Trainer, ModelInitializer
 from zamboni.sport import TeamService
+from zamboni.utils import today_date_str
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +46,11 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
         # Export all or only new games
         exporter = Exporter(con=db_con)
         last_training_date = loader.get_last_training_date()
+        logging.info('Exporting todays games')
         exporter.export_todays_games(dest=todays_data_path)
+        logging.info('Exporting training games')
         exporter.export_games(dest=training_data_path, after_date=last_training_date)
         loader.set_game_export_date()
-    print('Done exporting')
 
     model_init = None
     trainer = None
@@ -83,10 +83,8 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
             loader = SQLLoader(db_con=db_con)
         loader.set_last_training_date()
 
-        os.remove(training_data_path)
-
     if report:
-        print('In reporting')
+        report_path = f'data/predictions/preds_{today_date_str()}.txt'
         reporting_data_manager = ZamboniDataManager(todays_data_path)
         reporting_data_manager.load_parquet()
         num_samples = reporting_data_manager.num_samples()
@@ -109,13 +107,18 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
             data_with_preds = reporting_data_manager.data.copy()
             data_with_preds['preds'] = preds
             
-            for row in data_with_preds.itertuples():
-                home_abbrev = team_service.abbrev_from_id(row.homeTeamID)
-                away_abbrev = team_service.abbrev_from_id(row.awayTeamID)
-                if row.preds > 0.5:
-                    pred_winner = home_abbrev
-                else:
-                    pred_winner = away_abbrev
-                print(f'Game: {home_abbrev} vs {away_abbrev} on {row.datePlayed}')
-                print(f'Predicted winner: {pred_winner}')
-                print('---')
+            with open(report_path, 'w') as report_file:
+                for row in data_with_preds.itertuples():
+                    home_abbrev = team_service.abbrev_from_id(row.homeTeamID)
+                    away_abbrev = team_service.abbrev_from_id(row.awayTeamID)
+                    pred = row.preds
+                    print(f'pred: {pred}')
+                    confidence = pred if pred > 0.5 else 1 - pred
+                    if row.preds > 0.5:
+                        pred_winner = home_abbrev
+                    else:
+                        pred_winner = away_abbrev
+                    report_file.write(f'Game: {home_abbrev} vs {away_abbrev} on {row.datePlayed}\n')
+                    report_file.write(f'Predicted winner: {pred_winner}\n')
+                    report_file.write(f'Predicted confidence: {confidence*100:.0f}%\n')
+                    report_file.write('---\n')
