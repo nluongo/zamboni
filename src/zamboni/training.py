@@ -49,9 +49,11 @@ class Trainer():
         total_loss = 0
         all_labels = torch.tensor([])
         all_outputs = torch.tensor([])
+        activation = nn.Sigmoid()
         with torch.no_grad():
             for inputs, cat_inputs, labels in loader:
                 outputs = self.model(inputs, cat_inputs)
+                outputs = activation(outputs)
                 all_outputs = torch.concat([all_outputs, outputs])
                 all_labels = torch.concat([all_labels, labels])
                 loss = self.calculate_loss(outputs, labels)
@@ -104,25 +106,25 @@ class ModelInitializer():
         """
         self.initialize_model()
         self.initialize_optimizer()
+        self.initialize_scaler()
         epoch = 0
         loss = 0
-        if os.path.exists(self.model_dir_path):
+        if os.path.exists(self.model_dir_path) and os.listdir(self.model_dir_path) != []:
             checkpoint_path = self.get_latest_checkpoint()
-            print(checkpoint_path)
             logging.info(f'Model file found at {checkpoint_path}')
             logging.info(f'Attempting to load..')
             try:
-                checkpoint = torch.load(checkpoint_path, weights_only=True)
+                checkpoint = torch.load(checkpoint_path, weights_only=False)
                 self.model.load_state_dict(checkpoint['model_state_dict'])
                 self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                self.scaler = checkpoint['scaler_state_dict']
                 epoch = checkpoint['epoch']
                 loss = checkpoint['loss']
             except:
                 raise ValueError(f'Unable to load. Exiting.')
         else:
             logging.info(f'Creating and training new model.')
-        self.model.train()
-        return self.model, self.optimizer, epoch, loss
+        return self.model, self.optimizer, self.scaler, epoch, loss
 
     def initialize_model(self):
         """
@@ -132,9 +134,9 @@ class ModelInitializer():
             # Define the model, loss function, and optimizer
             input_size = len(self.column_tracker.inputs)
             hidden_size = 8
-            num_classes = 2
+            num_classes = 1
             num_embed_features = 2 # Home and away
-            num_teams = 33
+            num_teams = 50
             num_embed_categories = num_teams
             embed_dim = 5
             model = EmbeddingNN(input_size, hidden_size, num_classes, num_embed_features, num_embed_categories, embed_dim)
@@ -145,6 +147,12 @@ class ModelInitializer():
         Create optimizer
         """
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+
+    def initialize_scaler(self):
+        """
+        Create scaler
+        """
+        self.scaler = StandardScaler()
 
     def get_latest_checkpoint(self):
         """
@@ -164,14 +172,94 @@ class ModelInitializer():
         :param epoch: Epoch number
         :param loss: Loss value
         """
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'scaler_state_dict' : self.scaler,
             'loss': loss
-            }, f'data/{save_dir}/epoch{epoch}.tar')
+            }, f'{save_dir}/epoch{epoch}.tar')
 
-class SequentialStrategy():
+class TrainingStrategy():
+    """ Run a training strategy for training and predicting """
+    def __init__(self, data, trainer):
+        self.data = data
+        self.trainer = trainer
+        self.all_preds = []
+        self.all_labels = []
+        self.column_tracker = data.column_tracker
+
+    def run(self):
+        """
+        Run the training strategy
+        
+        :returns: Trainer object, all predictions, all labels
+        """
+        raise NotImplementedError("Training strategy not implemented")
+
+class OneSplitStrategy(TrainingStrategy):
+    """ Run a one-split strategy for training and predicting """
+    def __init__(self, data, trainer):
+        self.data = data
+        self.column_tracker = data.column_tracker
+        self.trainer = trainer
+        self.train_data = None
+        self.test_data = None
+
+    def split_by_date(self, date):
+        """
+        Split data by date
+        
+        :param date: Date to split data
+        :returns: Data before and after the split date
+        """
+        self.train_data = ZamboniData(self.data.select_by_date(None, date))
+        self.test_data = ZamboniData(self.data.select_by_date(date, None))
+
+    def split_by_percentage(self, percentage):
+        """
+        Split data by percentage
+        
+        :param percentage: Percentage to split data
+        :returns: Data before and after the split percentage
+        """
+        split_index = int(len(self.data.data) * percentage)
+        self.train_data = ZamboniData(self.data.data.iloc[:split_index], self.column_tracker)
+        self.test_data = ZamboniData(self.data.data.iloc[split_index:], self.column_tracker)
+
+    def run(self):
+        """
+        Train on all data before split date and predict on all data after split date
+        
+        :returns: Trainer object, all predictions, all labels
+        """
+        # Scale training data
+        scaler = StandardScaler()
+        self.train_data.scale_data(scaler=scaler, fit=True)
+        self.train_data.readd_noscale_columns()
+        self.train_data.create_dataset()
+        self.train_data.create_dataloader()
+
+        # Train model
+        self.trainer.train(self.train_data.loader)
+
+        # Scale test data
+        self.test_data.scale_data(scaler=scaler, fit=False, transform=True)
+        self.test_data.readd_noscale_columns()
+        self.test_data.create_dataset()
+        self.test_data.create_dataloader()
+
+        # Evaluate model on test data
+        _, all_preds, all_labels = self.trainer.eval(self.test_data.loader)
+
+        if len(all_preds.shape) > 1:
+            all_preds = torch.squeeze(all_preds, 1)
+
+        return self.trainer, all_preds, all_labels
+
+class SequentialStrategy(TrainingStrategy):
     """ Run a sequential strategy for training and predicting """
     def __init__(self, data, trainer, start_date=None, end_date=None):
         self.data = data
@@ -233,8 +321,8 @@ class SequentialStrategy():
                 todays_data.create_dataloader()
                 _, todays_preds, todays_labels = self.trainer.eval(todays_data.loader)
 
-            all_labels = torch.cat([all_labels, todays_labels])
-            all_preds = torch.cat([all_preds, todays_preds])
+                all_labels = torch.cat([all_labels, todays_labels])
+                all_preds = torch.cat([all_preds, todays_preds])
 
             self.yesterdays_games = todays_games
             self.yesterdays_preds = todays_preds
@@ -246,6 +334,18 @@ class SequentialStrategy():
             all_preds = torch.squeeze(all_preds, 1)
 
         return self.trainer, all_preds, all_labels
+
+class SequentialFromScratchStrategy(SequentialStrategy):
+    """ Run a sequential strategy for training and predicting from scratch """
+    def __init__(self, data, trainer, start_date=None, end_date=None):
+        super().__init__(data, trainer, start_date, end_date)
+        self.trainer = trainer
+        self.start_date = start_date
+        self.end_date = end_date
+        self.yesterdays_games = None
+        self.yesterdays_preds = None
+        self.yesterdays_date = None
+        self.day_delta = timedelta(days=1)
 
 class ResultsAnalyzer():
     """ Analyze trained model results """

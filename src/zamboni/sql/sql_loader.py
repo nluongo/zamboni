@@ -1,8 +1,12 @@
+import logging
 from zamboni.db_con import DBConnector
+from zamboni.sport import Game
+from zamboni.utils import split_csv_line
 from collections import defaultdict
-from datetime import date
+from zamboni.utils import today_date_str
 
-today_date = date.today()
+logger = logging.getLogger(__name__)
+today_date = today_date_str()
 
 class SQLLoader():
     ''' Load information from text files into SQLite database '''
@@ -36,7 +40,53 @@ class SQLLoader():
             team_id = id_dict[team_abbrev]
         return team_id
     
-    def load_games(self, txt_path=None):
+    def check_game_exists(self, game):
+        '''
+        Check if game exists in db
+        '''
+        sql = f'SELECT apiID, outcome FROM games ' \
+              f'WHERE apiID={game.api_id} '
+        with self.db_con as cursor:
+            query_res = cursor.execute(sql)
+        return query_res.fetchone()
+
+    def insert_game(self, game, cursor):
+        '''
+        Insert game into db
+        '''
+        sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
+                    VALUES("{game.api_id}", \
+                           "{game.season_id}", \
+                           "{game.home_team_id}", \
+                           "{game.away_team_id}", \
+                           "{game.date_played}", \
+                           "{game.day_of_year_played}", \
+                           "{game.year_played}", \
+                           "{game.time_played}", \
+                           "{game.home_team_goals}", \
+                           "{game.away_team_goals}", \
+                           "{game.game_type_id}", \
+                           "{game.last_period_type_id}", \
+                           "{game.outcome}", \
+                           "{game.in_ot}", \
+                           "{today_date}"
+                           )'''
+        cursor.execute(sql)
+
+    def update_game(self, game, cursor):
+        '''
+        Update game in db
+        '''
+        sql = f'''UPDATE games
+                    SET homeTeamGoals="{game.home_team_goals}",
+                        awayTeamGoals="{game.away_team_goals}",
+                        outcome="{game.outcome}",
+                        inOT="{game.in_ot}",
+                        lastPeriodTypeID="{game.last_period_type_id}"
+                    WHERE apiID="{game.api_id}"'''
+        cursor.execute(sql)
+
+    def load_games(self, team_service, txt_path=None):
         '''
         Load games from txt to db
         '''
@@ -44,58 +94,27 @@ class SQLLoader():
             txt_path = f'{self.txt_dir}/games.txt'
         with open(txt_path, 'r') as f, self.db_con as cursor:
             for line in f.readlines():
-                split_line = line.split(',')
-                split_line = [entry.strip() for entry in split_line]
-                api_id, season_id, home_api_id, home_team_abbrev, away_api_id, away_team_abbrev, date_played, day_of_year_played, year_played, time_played, home_team_goals, away_team_goals, game_type, last_period_type = split_line
-                cur_date = str(today_date)
-                home_team_id = self.get_team_id(self.team_id_dict, home_team_abbrev)
-                away_team_id = self.get_team_id(self.team_id_dict, away_team_abbrev)
-                if home_team_goals > away_team_goals:
-                    outcome = 1
-                elif home_team_goals < away_team_goals:
-                    outcome = 0
+                game = Game.from_csv_line(line)
+                game.team_ids_from_abbrev(team_service)
+                exists_out = self.check_game_exists(game)
+                if not exists_out:
+                    self.insert_game(game, cursor)
                 else:
-                    outcome = -1
-                if last_period_type == 'OT':
-                    in_ot = 1
+                    api_id, outcome = exists_out
+                    if outcome == -1:
+                        self.update_game(game, cursor)
+                    else:
+                        logging.debug(f'Game with ID {api_id} already exists in db with outcome {outcome}, skipping')
+        txt_path = f'{self.txt_dir}/games_today.txt'
+        with open(txt_path, 'r') as f, self.db_con as cursor:
+            for line in f.readlines():
+                game = Game.from_csv_line(line)
+                game.team_ids_from_abbrev(team_service)
+                exists_out = self.check_game_exists(game)
+                if not exists_out:
+                    self.insert_game(game, cursor)
                 else:
-                    in_ot = 0
-                exists_sql = f'SELECT 1 FROM games ' \
-                        f'WHERE apiID={api_id} ' \
-                        f'AND seasonID={season_id} ' \
-                        f'AND homeTeamID={home_team_id} ' \
-                        f'AND awayTeamID={away_team_id} ' \
-                        f'AND datePlayed="{date_played}" ' \
-                        f'AND dayOfYrPlayed={day_of_year_played} ' \
-                        f'AND yrPlayed={year_played} ' \
-                        f'AND timePlayed="{time_played}" ' \
-                        f'AND homeTeamGoals={home_team_goals} ' \
-                        f'AND awayTeamGoals={away_team_goals} ' \
-                        f'AND gameTypeID={game_type} ' \
-                        f'AND lastPeriodTypeID="{last_period_type}" ' \
-                        f'AND outcome={outcome} ' \
-                        f'AND inOT={in_ot}'
-                exists_res = cursor.execute(exists_sql).fetchone()
-                if exists_res:
-                    continue
-                sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
-                        VALUES("{api_id}", \
-                               "{season_id}", \
-                               "{home_team_id}", \
-                               "{away_team_id}", \
-                               "{date_played}", \
-                               "{day_of_year_played}", \
-                               "{year_played}", \
-                               "{time_played}", \
-                               "{home_team_goals}", \
-                               "{away_team_goals}", \
-                               "{game_type}", \
-                               "{last_period_type}", \
-                               "{outcome}", \
-                               "{in_ot}", \
-                               "{cur_date}"
-                               )'''
-                cursor.execute(sql)
+                    logging.debug(f'Game with ID {api_id} already exists in db with outcome {outcome}, skipping')
 
     def load_players(self, txt_path=None):
         '''
@@ -105,8 +124,7 @@ class SQLLoader():
             txt_path = f'{self.txt_dir}/players.txt'
         with open(txt_path) as f, self.db_con as cursor:
             for line in f.readlines():
-                line = [entry.strip() for entry in line.split(',')]
-                api_id, full_name, first_name, last_name, number, position = line
+                api_id, full_name, first_name, last_name, number, position = split_csv_line(line)      
                 sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
                         VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
                 self.cursor.execute(sql)
@@ -149,20 +167,19 @@ class SQLLoader():
         '''
         if not txt_path:
             txt_path = f'{self.txt_dir}/teams.txt'
-        with open(txt_path) as f, self.db_con as cursor:
+        with open(txt_path, 'r') as f, self.db_con as cursor:
+            delete_sql = f'''DELETE FROM teams'''
+            cursor.execute(delete_sql)
             for line in f.readlines():
-                split_line = line.split(',')
-                split_line = [entry.strip() for entry in split_line]
-                team_name, name_abbrev, conf_abbrev, div_abbrev = split_line
+                team_name, name_abbrev, conf_abbrev, div_abbrev = split_csv_line(line)
                 sql = f'''INSERT INTO teams(name, nameAbbrev, conferenceAbbrev, divisionAbbrev)
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
                 cursor.execute(sql)
 
-    def set_action_date(self, table_name, column_name, date=today_date):
+    def set_action_date(self, table_name, column_name, update_date=today_date):
         '''
         Set the date in a table tracking last action taken
         '''
-        update_date = str(date)
         delete_sql = f'''DELETE FROM {table_name}'''
         insert_sql = f'''INSERT INTO {table_name}({column_name}) VALUES("{update_date}")'''
         with self.db_con as cursor:
@@ -176,7 +193,11 @@ class SQLLoader():
         select_sql = f'''SELECT {column_name} FROM {table_name} LIMIT 1'''
         with self.db_con as cursor:
             query_res = cursor.execute(select_sql)
-        out = query_res.fetchone()
+        fetched = query_res.fetchone()
+        if fetched:
+            out = fetched[0]
+        else:
+            out = None
         return out
 
     def set_game_export_date(self):
@@ -185,11 +206,12 @@ class SQLLoader():
         '''
         self.set_action_date("gamesLastExport", "lastExportDate")
 
-    def set_game_export_date(self):
+    def get_game_export_date(self):
         '''
         Read the date in gamesLastExport
         '''
-        self.get_action_date('gamesLastExport', 'lastExportDate')
+        out = self.get_action_date('gamesLastExport', 'lastExportDate')
+        return out
 
     def set_last_training_date(self):
         '''
@@ -201,4 +223,5 @@ class SQLLoader():
         '''
         Read the date in lastTraining
         '''
-        self.get_action_date('lastTraining', 'lastTrainingDate')
+        out = self.get_action_date('lastTraining', 'lastTrainingDate')
+        return out

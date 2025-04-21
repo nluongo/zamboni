@@ -43,6 +43,9 @@ class ZamboniDataManager():
         """
         self.train_data, self.test_data = train_test_split(self.data, test_size=test_size, random_state=random_state, shuffle=False)
 
+    def num_samples(self):
+        return len(self.data)
+
 class ZamboniData():
     """ One set of data for training or eval """
     def __init__(self, data, column_tracker=None):
@@ -96,7 +99,6 @@ class ZamboniData():
         elif transform:
             features = self.scaler.transform(self.data.drop(columns=noscale_columns))
 
-
         # Recast as DataFrames
         self.data_scaled = pd.DataFrame(features)
 
@@ -118,13 +120,27 @@ class ZamboniData():
         categorical_columns = self.column_tracker.categorical
         nonet_columns = self.column_tracker.nonet
         self.dataset = ZamboniDataset(self.data_scaled, target_column, categorical_columns, nonet_columns)
-        logging.info(f'{len(self.dataset)} samples')
+        logging.debug(f'{len(self.dataset)} samples')
 
     def create_dataloader(self, shuffle=False):
         """
         Create dataloader
         """
         self.loader = DataLoader(self.dataset, batch_size=32, shuffle=shuffle)
+
+    def prep_data(self, scaler=None, fit=False, transform=True, shuffle=False):
+        """
+        Scale data and create dataset and dataloader
+
+        param: scaler: Scaler class
+        param: fit: Fit scaler to data
+        param: transform: Transform data with scaler
+        param: shuffle: Shuffle data
+        """
+        self.scale_data(scaler=scaler, fit=fit, transform=transform)
+        self.readd_noscale_columns()
+        self.create_dataset()
+        self.create_dataloader(shuffle=shuffle)
 
 class ZamboniDataset(Dataset):
     """ Custom Dataset class to handle parquet data """
