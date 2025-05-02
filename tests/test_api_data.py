@@ -4,16 +4,18 @@ from zamboni import APICaller
 error_message = 'The API output has changed'
 
 def test_player():
-    caller = APICaller('player')
+    caller = APICaller()
+    caller.set_url_template('player')
     test_id = 8447400
-    out = caller.query([test_id])
+    out = caller.query(record_ids=[test_id])
     assert out['firstName']['default'] == 'Wayne' and out['lastName']['default'] == 'Gretzky', error_message
 
 def test_game():
     from datetime import date
-    caller = APICaller('game')
+    caller = APICaller()
+    caller.set_url_template('game')
     test_date = date(1997, 3, 26)
-    out = caller.query([test_date])
+    out = caller.query(record_ids=[test_date])
     assert 'gameWeek' in out
     week = out['gameWeek']
     found_day = False

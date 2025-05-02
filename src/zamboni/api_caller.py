@@ -11,6 +11,7 @@ class APICaller():
         :param record_type: The type of record to be requested
         """
         self.url_base = APICaller.url_base
+        self.url = None
 
     def set_url_template(self, record_type):
         """
@@ -38,10 +39,12 @@ class APICaller():
         :returns: JSON of API output
         """
         # If no record type given, then query with raw URL ending given
-        if not record_type:
+        if not record_type and not self.url:
             url = self.url_base + record_ids[0]
-        else:
+        elif not self.url:
             self.set_url_template(record_type)
+            url = self.url.format(*record_ids)
+        elif not record_type:
             url = self.url.format(*record_ids)
         try:
             api_out = requests.get(url)
