@@ -4,7 +4,6 @@ asttokens==2.4.1
 async-timeout==4.0.3
 attrs==23.2.0
 Babel==2.10.3
-bcc==0.29.1
 bcrypt==3.2.2
 beautifulsoup4==4.12.3
 blinker==1.7.0
@@ -13,7 +12,7 @@ Brotli==1.1.0
 certifi==2023.11.17
 chardet==5.2.0
 click==8.1.6
-cloud-init==24.3.1
+cloud-init==24.4.1
 colorama==0.4.6
 command-not-found==0.3
 configobj==5.0.8
@@ -101,7 +100,7 @@ PyQt6-sip==13.6.0
 PyQt6-WebEngine==6.6.0
 pyrsistent==0.20.0
 pyserial==3.5
-python-apt==2.7.7+ubuntu3
+python-apt==2.7.7+ubuntu4
 python-dateutil==2.8.2
 python-debian==0.1.49+ubuntu2
 python-distutils-extra==3.0
