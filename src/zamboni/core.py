@@ -61,27 +61,22 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
         num_samples = data_manager.num_samples()
         if num_samples == 0:
             logging.info('No samples in games.parquet, exiting...')
-            return
-        data_manager.split_data()
+        else:
+            if model_init is None:
+                column_tracker = ColumnTracker(data_manager.data.columns.tolist())
+                model_init = ModelInitializer('data/embed_nn', 'EmbeddingNN', column_tracker)
+                model, optimizer, scaler, _, _ = model_init.get_model()
+                trainer = Trainer(model, optimizer)
 
-        if model_init is None:
-            column_tracker = ColumnTracker(data_manager.data.columns.tolist())
-            model_init = ModelInitializer('data/embed_nn', 'EmbeddingNN', column_tracker)
-            model, optimizer, scaler, _, _ = model_init.get_model()
-            trainer = Trainer(model, optimizer)
+            train_data = ZamboniData(data_manager.data, column_tracker=column_tracker)
+            train_data.prep_data(scaler=scaler, fit=True)
 
-        train_data = ZamboniData(data_manager.train_data, column_tracker=column_tracker)
-        test_data = ZamboniData(data_manager.test_data, column_tracker=column_tracker)
+            trainer.train(train_data.loader)
 
-        train_data.prep_data(scaler=scaler, fit=True)
-        test_data.prep_data(scaler=scaler)
-
-        trainer.train(train_data.loader, test_data.loader)
-
-        model_init.save_model('data/embed_nn', trainer.end_epoch, trainer.end_loss)
-        if not loader:
-            loader = SQLLoader(db_con=db_con)
-        loader.set_last_training_date()
+            model_init.save_model('data/embed_nn', trainer.end_epoch, trainer.end_loss)
+            if not loader:
+                loader = SQLLoader(db_con=db_con)
+            loader.set_last_training_date()
 
     if report:
         report_path = f'data/predictions/preds_{today_date_str()}.txt'
@@ -97,6 +92,7 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
             trainer = Trainer(model, optimizer)
 
             todays_data = ZamboniData(reporting_data_manager.data, column_tracker=column_tracker)
+           
             # If scaler not fitted, fit as this is a new model and not loaded
             if hasattr(scaler, "n_features_in_"):
                 todays_data.prep_data(scaler=scaler)
@@ -112,13 +108,12 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
                     home_abbrev = team_service.abbrev_from_id(row.homeTeamID)
                     away_abbrev = team_service.abbrev_from_id(row.awayTeamID)
                     pred = row.preds
-                    print(f'pred: {pred}')
                     confidence = pred if pred > 0.5 else 1 - pred
                     if row.preds > 0.5:
                         pred_winner = home_abbrev
                     else:
                         pred_winner = away_abbrev
-                    report_file.write(f'Game: {home_abbrev} vs {away_abbrev} on {row.datePlayed}\n')
+                    report_file.write(f'Game: {home_abbrev} vs {away_abbrev}\n')
                     report_file.write(f'Predicted winner: {pred_winner}\n')
                     report_file.write(f'Predicted confidence: {confidence*100:.0f}%\n')
                     report_file.write('---\n')

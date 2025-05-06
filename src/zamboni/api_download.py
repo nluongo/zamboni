@@ -15,7 +15,7 @@ def query_date_games(caller, in_date):
     day_str = zero_pad(in_date.day, 2)
     date_string = f'{year_str}-{month_str}-{day_str}'
     logging.info(f'Querying API at date {date_string}')
-    output = caller.query('game', [date_string], throw_error=False)
+    output = caller.query([date_string], 'game', throw_error=False)
     return output
 
 def write_game_data(f, game, completed=True):
@@ -121,7 +121,7 @@ def download_players(out_path='data/players.txt'):
     step = 1
     with open('data/players.txt', 'w') as f:
         while api_id < end_id:
-            player = caller.query('player', [api_id], throw_error=False)
+            player = caller.query([api_id], 'player', throw_error=False)
             if not player:
                 if api_id%step == 0:
                     print(api_id)
@@ -160,7 +160,7 @@ def download_rosters(start_year=2024, out_path='data/rosterEntries.txt'):
             logging.info(f'Querying API for {start_year}-{end_year} season rosters')
             for team in team_abbrevs:
                 api_ids = [team, start_year, end_year]
-                out = caller.query('roster', api_ids, throw_error=False)
+                out = caller.query(api_ids, 'roster', throw_error=False)
                 if out is None:
                     continue
                 forwards = out['forwards']
@@ -176,6 +176,7 @@ def download_rosters(start_year=2024, out_path='data/rosterEntries.txt'):
             start_year += 1
 
 def download_teams(start_year=2024, out_path='data/teams.txt'):
+    #start_year = 2024
     caller = APICaller()
     
     query_year = start_year
@@ -184,15 +185,19 @@ def download_teams(start_year=2024, out_path='data/teams.txt'):
     while query_year <= cur_year:
         query_date = f'{query_year}-12-31'
         logging.info(f'Querying API for teams during {query_year}-{query_year+1} season')
-        info_json = caller.query('standings', [query_date])
+        info_json = caller.query([query_date], 'standings')
     
         standings = info_json['standings']
 
         for team in standings:
+            if 'teamName' not in team.keys() or 'teamAbbrev' not in team.keys():
+                continue
+            if not team['teamName'].get('default', '') or not team['teamAbbrev'].get('default', ''):
+                continue
             team_name = team['teamName']['default']
             team_abbrev = team['teamAbbrev']['default']
-            conf_abbrev = team['conferenceAbbrev']
-            div_abbrev = team['divisionAbbrev']
+            conf_abbrev = team.get('conferenceAbbrev', 'N/A')
+            div_abbrev = team.get('divisionAbbrev', 'N/A')
             team_str = f'{team_name}, {team_abbrev}, {conf_abbrev}, {div_abbrev}\n'
             teams_to_write.add(team_str)
         query_year += 1

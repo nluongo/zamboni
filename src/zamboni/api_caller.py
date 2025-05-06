@@ -30,7 +30,7 @@ class APICaller():
         else:
             print(f'ERROR: no endpoint associated with the record type {record_type}')
 
-    def query(self, record_type=None, record_ids=[], throw_error=True):
+    def query(self, record_ids, record_type=None, throw_error=True):
         """
         Submit query to NHL API
 
@@ -38,14 +38,13 @@ class APICaller():
         :param throw_error: Flag to throw error if query returns nothing
         :returns: JSON of API output
         """
-        # If no record type given, then query with raw URL ending given
-        if not record_type and not self.url:
-            url = self.url_base + record_ids[0]
-        elif not self.url:
+        if record_type and record_ids:
             self.set_url_template(record_type)
             url = self.url.format(*record_ids)
         elif not record_type:
-            url = self.url.format(*record_ids)
+            url = self.url_base + record_ids[0]
+        else:
+            url = self.url_base + '/'.join(record_ids)
         try:
             api_out = requests.get(url)
             api_out.raise_for_status()  # Raise an HTTPError for bad responses

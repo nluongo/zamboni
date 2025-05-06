@@ -21,6 +21,7 @@ class TeamService:
                 team_id, abbrev = row
                 self.abbrev_id_dict[abbrev] = team_id
                 self.id_abbrev_dict[team_id] = abbrev
+        print(self.abbrev_id_dict)
 
     def id_from_abbrev(self, abbrev):
         team_id = self.abbrev_id_dict[abbrev]
@@ -55,12 +56,12 @@ class Team:
 class Game:
     ''' One game, defined by home team, away team and date '''
     def __str__(self):
-        return f'{self.home_team} vs {self.away_team} on {self.date}'
+        return f'{self.home_abbrev} vs {self.away_abbrev} on {self.date}'
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.home_team}, {self.away_team}, {self.date})'
+        return f'{self.__class__.__name__}({self.home_abbrev}, {self.away_abbrev}, {self.date})'
     def __eq__(self, other):
-        return (self.home_team == other.home_team and
-                self.away_team == other.away_team and
+        return (self.home_abbrev == other.home_abbrev and
+                self.away_abbrev == other.away_abbrev and
                 self.date == other.date)
 
     @classmethod
