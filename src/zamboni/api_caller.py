@@ -12,6 +12,7 @@ class APICaller():
         """
         self.url_base = APICaller.url_base
         self.url = None
+        self.record_type = None
 
     def set_url_template(self, record_type):
         """
@@ -19,6 +20,7 @@ class APICaller():
 
         :param record_type: The type of record to be requested
         """
+        self.record_type = record_type
         if record_type == 'standings':
             self.url = self.url_base + 'standings/{}' 
         elif record_type == 'player':
@@ -38,13 +40,14 @@ class APICaller():
         :param throw_error: Flag to throw error if query returns nothing
         :returns: JSON of API output
         """
-        if record_type and record_ids:
+        if record_type:
             self.set_url_template(record_type)
             url = self.url.format(*record_ids)
-        elif not record_type:
-            url = self.url_base + record_ids[0]
+        elif self.record_type:
+            url = self.url.format(*record_ids)
         else:
-            url = self.url_base + '/'.join(record_ids)
+            ids_str = [str(record_id) for record_id in record_ids]
+            url = self.url_base + '/'.join(ids_str)
         try:
             api_out = requests.get(url)
             api_out.raise_for_status()  # Raise an HTTPError for bad responses
