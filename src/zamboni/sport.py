@@ -21,7 +21,6 @@ class TeamService:
                 team_id, abbrev = row
                 self.abbrev_id_dict[abbrev] = team_id
                 self.id_abbrev_dict[team_id] = abbrev
-        print(self.abbrev_id_dict)
 
     def id_from_abbrev(self, abbrev):
         team_id = self.abbrev_id_dict[abbrev]
@@ -30,6 +29,8 @@ class TeamService:
         return team_id
 
     def abbrev_from_id(self, team_id):
+        if self.abbrev_id_dict == defaultdict(lambda: -1):
+            self.build_abbrev_id_dicts()
         abbrev = self.id_abbrev_dict[team_id]
         if abbrev == 'N/A':
             logging.warning(f'Abbreviation for team with ID {team_id} not found')

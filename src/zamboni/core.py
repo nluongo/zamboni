@@ -19,7 +19,6 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
     
     if load_db or report:
         team_service = TeamService(db_con)
-        team_service.build_abbrev_id_dicts()
 
     if create_tables:
         table_creator = TableCreator(db_con)
@@ -35,6 +34,7 @@ def run(download=True, create_tables=False, force_recreate_tables=False, load_db
 
     if load_db:
         loader.load_teams()
+        team_service.build_abbrev_id_dicts()
         loader.load_games(team_service)
         #loader.load_players()
         #loader.load_roster_entries()
