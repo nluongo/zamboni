@@ -112,18 +112,15 @@ class ModelInitializer():
         if os.path.exists(self.model_dir_path) and os.listdir(self.model_dir_path) != []:
             checkpoint_path = self.get_latest_checkpoint()
             logging.info(f'Model file found at {checkpoint_path}')
-            logging.info(f'Attempting to load..')
-            try:
-                checkpoint = torch.load(checkpoint_path, weights_only=False)
-                self.model.load_state_dict(checkpoint['model_state_dict'])
-                self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                self.scaler = checkpoint['scaler_state_dict']
-                epoch = checkpoint['epoch']
-                loss = checkpoint['loss']
-            except:
-                raise ValueError(f'Unable to load. Exiting.')
+            logging.info('Attempting to load..')
+            checkpoint = torch.load(checkpoint_path, weights_only=False)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.scaler = checkpoint['scaler_state_dict']
+            epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
         else:
-            logging.info(f'Creating and training new model.')
+            logging.info('Creating and training new model.')
         return self.model, self.optimizer, self.scaler, epoch, loss
 
     def initialize_model(self):

@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 
 def filter_by_game_type(df, type_id):

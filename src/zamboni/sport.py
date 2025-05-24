@@ -1,5 +1,4 @@
 from collections import defaultdict
-import csv
 import logging
 from zamboni.utils import split_csv_line
 

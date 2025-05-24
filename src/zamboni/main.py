@@ -1,5 +1,4 @@
 import argparse
-import os
 from zamboni.core import run
 
 def cli():

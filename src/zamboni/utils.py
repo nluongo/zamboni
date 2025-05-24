@@ -1,5 +1,15 @@
 from datetime import date
 
+def zero_pad(to_pad, length, padder='0'):
+    padded_value = padder * (length - len(str(to_pad))) + str(to_pad)
+    return padded_value
+
+def zero_pad_date(year, month, day):
+    year_str = zero_pad(year, 4)
+    month_str = zero_pad(month, 2)
+    day_str = zero_pad(day, 2)
+    return f'{year_str}-{month_str}-{day_str}'
+
 def get_today_date():
     '''
     Get today's date

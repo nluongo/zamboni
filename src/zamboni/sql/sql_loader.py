@@ -44,7 +44,7 @@ class SQLLoader():
         '''
         Check if game exists in db
         '''
-        sql = f'SELECT apiID, outcome FROM games ' \
+        sql = 'SELECT apiID, outcome FROM games ' \
               f'WHERE apiID={game.api_id} '
         with self.db_con as cursor:
             query_res = cursor.execute(sql)
@@ -127,7 +127,7 @@ class SQLLoader():
                 api_id, full_name, first_name, last_name, number, position = split_csv_line(line)      
                 sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
                         VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
-                self.cursor.execute(sql)
+                cursor.execute(sql)
             self.db_connector.conn.commit()
         
     def load_roster_entries(self, txt_path=None):
@@ -142,7 +142,7 @@ class SQLLoader():
                 api_id, team_abbrev, year, first_name, last_name, start_year, end_year = line
         
                 team_id_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
-                team_id_res = self.cursor.execute(team_id_sql)
+                team_id_res = cursor.execute(team_id_sql)
                 team_id_fetch = team_id_res.fetchone()
                 if team_id_fetch is None:
                     print('No team found with name {team_abbrev}, skipping record')
@@ -150,7 +150,7 @@ class SQLLoader():
                 team_id = team_id_fetch[0]
         
                 player_id_sql = f'''SELECT id FROM players WHERE firstName="{first_name}" AND lastName="{last_name}"'''
-                player_id_res = self.cursor.execute(player_id_sql)
+                player_id_res = cursor.execute(player_id_sql)
                 player_id_fetch = player_id_res.fetchone()
                 if player_id_fetch is None:
                     print(f'No player found with name {first_name} {last_name}, skipping record')
@@ -159,7 +159,7 @@ class SQLLoader():
         
                 sql = f'''INSERT INTO rosterEntries(apiID, playerID, teamID, seasonID, startYear, endYear)
                         VALUES("{api_id}", "{player_id}", "{team_id}", "{year}", "{start_year}", "{end_year}")'''
-                self.cursor.execute(sql)
+                cursor.execute(sql)
 
     def load_teams(self, txt_path=None):
         '''
@@ -168,7 +168,7 @@ class SQLLoader():
         if not txt_path:
             txt_path = f'{self.txt_dir}/teams.txt'
         with open(txt_path, 'r') as f, self.db_con as cursor:
-            delete_sql = f'''DELETE FROM teams'''
+            delete_sql = '''DELETE FROM teams'''
             cursor.execute(delete_sql)
             for line in f.readlines():
                 team_name, name_abbrev, conf_abbrev, div_abbrev = split_csv_line(line)
@@ -224,4 +224,14 @@ class SQLLoader():
         Read the date in lastTraining
         '''
         out = self.get_action_date('lastTraining', 'lastTrainingDate')
+        return out
+
+    def get_predicters(self):
+        '''
+        Get the predicters from the db
+        '''
+        sql = 'SELECT id, predicterName, predicterType, predicterPath, trainable, active FROM predicterRegister'
+        with self.db_con as cursor:
+            query_res = cursor.execute(sql)
+        out = [list(row) for row in query_res.fetchall()]
         return out
