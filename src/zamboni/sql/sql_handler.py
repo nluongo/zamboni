@@ -8,25 +8,27 @@ from zamboni.utils import today_date_str
 logger = logging.getLogger(__name__)
 today_date = today_date_str()
 
-class SQLLoader():
-    ''' Load information from text files into SQLite database '''
-    def __init__(self, txt_dir='data', db_con=None):
-        '''
+
+class SQLHandler:
+    """Load information from text files into SQLite database"""
+
+    def __init__(self, txt_dir="data", db_con=None):
+        """
         Establish connection to db
-        '''
+        """
         self.txt_dir = txt_dir
         if not db_con:
             db_connector = DBConnector()
             self.db_con = db_connector.connect_db()
         else:
             self.db_con = db_con
-        self.team_id_dict = defaultdict(lambda: 'Undefined')
+        self.team_id_dict = defaultdict(lambda: "Undefined")
 
     def get_team_id(self, id_dict, team_abbrev):
-        ''' 
-        Get team ID from db if it exists and store in dictionary if not 
-        '''
-        if id_dict[team_abbrev] == 'Undefined':
+        """
+        Get team ID from db if it exists and store in dictionary if not
+        """
+        if id_dict[team_abbrev] == "Undefined":
             query_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
             with self.db_con as cursor:
                 query_res = cursor.execute(query_sql)
@@ -39,21 +41,20 @@ class SQLLoader():
         else:
             team_id = id_dict[team_abbrev]
         return team_id
-    
+
     def check_game_exists(self, game):
-        '''
+        """
         Check if game exists in db
-        '''
-        sql = 'SELECT apiID, outcome FROM games ' \
-              f'WHERE apiID={game.api_id} '
+        """
+        sql = f"SELECT apiID, outcome FROM games WHERE apiID={game.api_id} "
         with self.db_con as cursor:
             query_res = cursor.execute(sql)
         return query_res.fetchone()
 
     def insert_game(self, game, cursor):
-        '''
+        """
         Insert game into db
-        '''
+        """
         sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
                     VALUES("{game.api_id}", \
                            "{game.season_id}", \
@@ -74,9 +75,9 @@ class SQLLoader():
         cursor.execute(sql)
 
     def update_game(self, game, cursor):
-        '''
+        """
         Update game in db
-        '''
+        """
         sql = f'''UPDATE games
                     SET homeTeamGoals="{game.home_team_goals}",
                         awayTeamGoals="{game.away_team_goals}",
@@ -86,13 +87,13 @@ class SQLLoader():
                     WHERE apiID="{game.api_id}"'''
         cursor.execute(sql)
 
-    def load_games(self, team_service, txt_path=None):
-        '''
+    def load_games_to_db(self, team_service, txt_path=None):
+        """
         Load games from txt to db
-        '''
+        """
         if not txt_path:
-            txt_path = f'{self.txt_dir}/games.txt'
-        with open(txt_path, 'r') as f, self.db_con as cursor:
+            txt_path = f"{self.txt_dir}/games.txt"
+        with open(txt_path, "r") as f, self.db_con as cursor:
             for line in f.readlines():
                 game = Game.from_csv_line(line)
                 game.team_ids_from_abbrev(team_service)
@@ -104,9 +105,11 @@ class SQLLoader():
                     if outcome == -1:
                         self.update_game(game, cursor)
                     else:
-                        logging.debug(f'Game with ID {api_id} already exists in db with outcome {outcome}, skipping')
-        txt_path = f'{self.txt_dir}/games_today.txt'
-        with open(txt_path, 'r') as f, self.db_con as cursor:
+                        logging.debug(
+                            f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
+                        )
+        txt_path = f"{self.txt_dir}/games_today.txt"
+        with open(txt_path, "r") as f, self.db_con as cursor:
             for line in f.readlines():
                 game = Game.from_csv_line(line)
                 game.team_ids_from_abbrev(team_service)
@@ -114,61 +117,77 @@ class SQLLoader():
                 if not exists_out:
                     self.insert_game(game, cursor)
                 else:
-                    logging.debug(f'Game with ID {api_id} already exists in db with outcome {outcome}, skipping')
+                    logging.debug(
+                        f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
+                    )
 
     def load_players(self, txt_path=None):
-        '''
+        """
         Load players from txt to db
-        '''
+        """
         if not txt_path:
-            txt_path = f'{self.txt_dir}/players.txt'
+            txt_path = f"{self.txt_dir}/players.txt"
         with open(txt_path) as f, self.db_con as cursor:
             for line in f.readlines():
-                api_id, full_name, first_name, last_name, number, position = split_csv_line(line)      
+                api_id, full_name, first_name, last_name, number, position = (
+                    split_csv_line(line)
+                )
                 sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
                         VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
                 cursor.execute(sql)
             self.db_connector.conn.commit()
-        
+
     def load_roster_entries(self, txt_path=None):
-        '''
+        """
         Load roster entries (player + team + season) from txt to db
-        '''
+        """
         if not txt_path:
-            txt_path = f'{self.txt_dir}/rosterEntries.txt'
-        with open(txt_path, 'r') as f, self.db_con as cursor:
+            txt_path = f"{self.txt_dir}/rosterEntries.txt"
+        with open(txt_path, "r") as f, self.db_con as cursor:
             for line in f.readlines():
-                line = [entry.strip() for entry in line.split(',')]
-                api_id, team_abbrev, year, first_name, last_name, start_year, end_year = line
-        
-                team_id_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
+                line = [entry.strip() for entry in line.split(",")]
+                (
+                    api_id,
+                    team_abbrev,
+                    year,
+                    first_name,
+                    last_name,
+                    start_year,
+                    end_year,
+                ) = line
+
+                team_id_sql = (
+                    f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
+                )
                 team_id_res = cursor.execute(team_id_sql)
                 team_id_fetch = team_id_res.fetchone()
                 if team_id_fetch is None:
-                    print('No team found with name {team_abbrev}, skipping record')
+                    print("No team found with name {team_abbrev}, skipping record")
                     continue
                 team_id = team_id_fetch[0]
-        
+
                 player_id_sql = f'''SELECT id FROM players WHERE firstName="{first_name}" AND lastName="{last_name}"'''
                 player_id_res = cursor.execute(player_id_sql)
                 player_id_fetch = player_id_res.fetchone()
                 if player_id_fetch is None:
-                    print(f'No player found with name {first_name} {last_name}, skipping record')
+                    print(
+                        f"No player found with name {first_name} {last_name}, skipping record"
+                    )
                     continue
                 player_id = player_id_fetch[0]
-        
+
                 sql = f'''INSERT INTO rosterEntries(apiID, playerID, teamID, seasonID, startYear, endYear)
                         VALUES("{api_id}", "{player_id}", "{team_id}", "{year}", "{start_year}", "{end_year}")'''
                 cursor.execute(sql)
 
     def load_teams(self, txt_path=None):
-        '''
+        """
         Load teams from txt to db
-        '''
+        """
         if not txt_path:
-            txt_path = f'{self.txt_dir}/teams.txt'
-        with open(txt_path, 'r') as f, self.db_con as cursor:
-            delete_sql = '''DELETE FROM teams'''
+            txt_path = f"{self.txt_dir}/teams.txt"
+        with open(txt_path, "r") as f, self.db_con as cursor:
+            delete_sql = """DELETE FROM teams"""
             cursor.execute(delete_sql)
             for line in f.readlines():
                 team_name, name_abbrev, conf_abbrev, div_abbrev = split_csv_line(line)
@@ -176,21 +195,26 @@ class SQLLoader():
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
                 cursor.execute(sql)
 
+    def query_games(self):
+        pass
+
     def set_action_date(self, table_name, column_name, update_date=today_date):
-        '''
+        """
         Set the date in a table tracking last action taken
-        '''
-        delete_sql = f'''DELETE FROM {table_name}'''
-        insert_sql = f'''INSERT INTO {table_name}({column_name}) VALUES("{update_date}")'''
+        """
+        delete_sql = f"""DELETE FROM {table_name}"""
+        insert_sql = (
+            f'''INSERT INTO {table_name}({column_name}) VALUES("{update_date}")'''
+        )
         with self.db_con as cursor:
             cursor.execute(delete_sql)
             cursor.execute(insert_sql)
 
     def get_action_date(self, table_name, column_name):
-        '''
+        """
         Read the action date from a table
-        '''
-        select_sql = f'''SELECT {column_name} FROM {table_name} LIMIT 1'''
+        """
+        select_sql = f"""SELECT {column_name} FROM {table_name} LIMIT 1"""
         with self.db_con as cursor:
             query_res = cursor.execute(select_sql)
         fetched = query_res.fetchone()
@@ -201,36 +225,36 @@ class SQLLoader():
         return out
 
     def set_game_export_date(self):
-        '''
+        """
         Update the date in gamesLastExport with current date
-        '''
+        """
         self.set_action_date("gamesLastExport", "lastExportDate")
 
     def get_game_export_date(self):
-        '''
+        """
         Read the date in gamesLastExport
-        '''
-        out = self.get_action_date('gamesLastExport', 'lastExportDate')
+        """
+        out = self.get_action_date("gamesLastExport", "lastExportDate")
         return out
 
     def set_last_training_date(self):
-        '''
+        """
         Update the date in lastTraining with current date
-        '''
+        """
         self.set_action_date("lastTraining", "lastTrainingDate")
 
     def get_last_training_date(self):
-        '''
+        """
         Read the date in lastTraining
-        '''
-        out = self.get_action_date('lastTraining', 'lastTrainingDate')
+        """
+        out = self.get_action_date("lastTraining", "lastTrainingDate")
         return out
 
     def get_predicters(self):
-        '''
+        """
         Get the predicters from the db
-        '''
-        sql = 'SELECT id, predicterName, predicterType, predicterPath, trainable, active FROM predicterRegister'
+        """
+        sql = "SELECT id, predicterName, predicterType, predicterPath, trainable, active FROM predicterRegister"
         with self.db_con as cursor:
             query_res = cursor.execute(sql)
         out = [list(row) for row in query_res.fetchall()]

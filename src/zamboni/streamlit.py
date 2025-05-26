@@ -1,3 +1,4 @@
+import requests
 import streamlit as st
 from zamboni.sql.sql_helpers import days_games
 from zamboni.utils import today_date_str
@@ -50,31 +51,35 @@ st.subheader(f"NHL Game Predictions for {today_date}")
 # Date input for selecting games
 selected_date = st.date_input("Select a date to view predictions:", value=today_date)
 selected_date_str = str(selected_date)
+st.session_state.selected_date = selected_date
 
 # Display predictions for the selected date
 st.header("Games")
 try:
-    with open(f"data/predictions/preds_{selected_date_str}.txt", "r") as f:
-        pred_lines = f.readlines()
-    pred_lines = [line.strip() for line in pred_lines]
     game_results = days_games(selected_date_str)
-    if pred_lines:
-        for line in pred_lines:
-            if 'Game: ' in line:
-                home_team_goals = away_team_goals = None
-                split_line = line.split(' ')
-                home_team_abbrev, away_team_abbrev = split_line[1], split_line[3]
-                for result in game_results:
-                    if home_team_abbrev == result[0] and away_team_abbrev == result[2]:
-                        home_team_goals, away_team_goals = result[1], result[3]
-                        break
-            if '---' in line:
-                if home_team_goals and away_team_goals:
-                    st.text(f"{home_team_abbrev} ({home_team_goals}) - {away_team_abbrev} ({away_team_goals})")
-                else:
-                    st.text(f"No score available")
-            st.text(line)
+    api_response = requests.get(f"http://18.222.220.192:8000/{selected_date}").json()
+    if len(api_response) == 0:
+        st.info("No predictions available for the selected date.")
+    for api_game in api_response:
+        home_team_abbrev = api_game["homeAbbrev"]
+        away_team_abbrev = api_game["awayAbbrev"]
+        predicted_winner = api_game["predictedWinner"]
+        predicted_confidence = api_game["predictedConfidence"]
+        home_team_goals = None
+        away_team_goals = None
+        for result in game_results:
+            if home_team_abbrev == result[0] and away_team_abbrev == result[2]:
+                home_team_goals, away_team_goals = result[1], result[3]
+                break
+        if home_team_goals and away_team_goals:
+            st.text(
+                f"{home_team_abbrev} ({home_team_goals}) - {away_team_abbrev} ({away_team_goals})"
+            )
+        else:
+            st.text(f"{home_team_abbrev} - {away_team_abbrev}")
+        st.text(f"Predicted winner: {predicted_winner}")
+        st.text(f"Predicted confidence: {predicted_confidence}")
     else:
         st.info("No predictions available for the selected date.")
-except FileNotFoundError:
+except requests.JSONDecodeError:
     st.warning(f"No prediction file found for {selected_date_str}.")
