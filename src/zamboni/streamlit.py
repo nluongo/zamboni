@@ -1,6 +1,5 @@
 import requests
 import streamlit as st
-from zamboni.sql.sql_helpers import days_games
 from zamboni.utils import today_date_str
 
 # Get today's date
@@ -56,7 +55,6 @@ st.session_state.selected_date = selected_date
 # Display predictions for the selected date
 st.header("Games")
 try:
-    game_results = days_games(selected_date_str)
     api_response = requests.get(f"http://18.222.220.192:8000/{selected_date}").json()
     if len(api_response) == 0:
         st.info("No predictions available for the selected date.")
@@ -67,16 +65,7 @@ try:
         predicted_confidence = api_game["predictedConfidence"]
         home_team_goals = None
         away_team_goals = None
-        for result in game_results:
-            if home_team_abbrev == result[0] and away_team_abbrev == result[2]:
-                home_team_goals, away_team_goals = result[1], result[3]
-                break
-        if home_team_goals and away_team_goals:
-            st.text(
-                f"{home_team_abbrev} ({home_team_goals}) - {away_team_abbrev} ({away_team_goals})"
-            )
-        else:
-            st.text(f"{home_team_abbrev} - {away_team_abbrev}")
+        st.text(f"{home_team_abbrev} - {away_team_abbrev}")
         st.text(f"Predicted winner: {predicted_winner}")
         st.text(f"Predicted confidence: {predicted_confidence}")
     else:
