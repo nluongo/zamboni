@@ -1,7 +1,7 @@
 import requests
 import streamlit as st
-from zamboni.sql.sql_helpers import days_games
-from zamboni.utils import today_date_str
+from sql.sql_helpers import days_games
+from utils import today_date_str
 
 # Get today's date
 today_date = today_date_str()
