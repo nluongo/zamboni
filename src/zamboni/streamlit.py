@@ -45,7 +45,7 @@ st.sidebar.markdown(
 
 # Main page content
 st.title("ZamboniAI")
-st.subheader(f"NHL Game Predictions for {today_date}")
+st.subheader("NHL Game Predictions")
 
 # Date input for selecting games
 selected_date = st.date_input("Select a date to view predictions:", value=today_date)
