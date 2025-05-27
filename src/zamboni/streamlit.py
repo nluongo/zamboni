@@ -55,7 +55,9 @@ st.session_state.selected_date = selected_date
 # Display predictions for the selected date
 st.header("Games")
 try:
-    api_response = requests.get(f"http://18.222.220.192:8000/{selected_date}").json()
+    api_response = requests.get(
+        f"https://nicholas-luongo.com/zamboni/api/{selected_date}"
+    ).json()
     if len(api_response) == 0:
         st.info("No predictions available for the selected date.")
     for api_game in api_response:
@@ -68,7 +70,5 @@ try:
         st.text(f"{home_team_abbrev} - {away_team_abbrev}")
         st.text(f"Predicted winner: {predicted_winner}")
         st.text(f"Predicted confidence: {predicted_confidence}")
-    else:
-        st.info("No predictions available for the selected date.")
 except requests.JSONDecodeError:
     st.warning(f"No prediction file found for {selected_date_str}.")
