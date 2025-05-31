@@ -1,33 +1,42 @@
-import pytest
 from zamboni import APICaller
 
-error_message = 'The API output has changed'
+error_message = "The API output has changed"
+
 
 def test_player():
     caller = APICaller()
-    caller.set_url_template('player')
+    caller.set_url_template("player")
     test_id = 8447400
     out = caller.query([test_id])
-    assert out['firstName']['default'] == 'Wayne' and out['lastName']['default'] == 'Gretzky', error_message
+    assert (
+        out["firstName"]["default"] == "Wayne"
+        and out["lastName"]["default"] == "Gretzky"
+    ), error_message
+
 
 def test_game():
     from datetime import date
+
     caller = APICaller()
-    caller.set_url_template('game')
+    caller.set_url_template("game")
     test_date = date(1997, 3, 26)
     out = caller.query([test_date])
-    assert 'gameWeek' in out
-    week = out['gameWeek']
+    assert "gameWeek" in out
+    week = out["gameWeek"]
     found_day = False
     for day in week:
-        if day['date'] == '1997-03-26':
+        if day["date"] == "1997-03-26":
             game_day = day
             found_day = True
     assert found_day
-    found_game = False
-    for game in game_day['games']:
-        if game['venue']['default'] == 'Joe Louis Arena':
+    for game in game_day["games"]:
+        if game["venue"]["default"] == "Joe Louis Arena":
             test_game = game
-            found_game = True
-    assert test_game['homeTeam']['placeName']['default'] == 'Detroit' and test_game['homeTeam']['score'] == 6
-    assert test_game['awayTeam']['placeName']['default'] == 'Colorado' and test_game['awayTeam']['score'] == 5
+    assert (
+        test_game["homeTeam"]["placeName"]["default"] == "Detroit"
+        and test_game["homeTeam"]["score"] == 6
+    )
+    assert (
+        test_game["awayTeam"]["placeName"]["default"] == "Colorado"
+        and test_game["awayTeam"]["score"] == 5
+    )
