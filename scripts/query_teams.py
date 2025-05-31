@@ -1,14 +1,9 @@
-import requests
+from zamboni import APICaller
 
-r = requests.get('https://statsapi.web.nhl.com/api/v1/teams')
-info_json = r.json().get('teams', [])
-print(info_json)
-exit()
-week = info_json['gameWeek']
-day = week[0]
-print(day['date'])
-for game in day['games']:
-    print()
-    for key, value in game.items():
-        print(key)
-        print(value)
+caller = APICaller()
+query_out = caller.query("standings", ["2024-12-31"])
+print(query_out)
+print(query_out["standings"])
+for team in query_out["standings"]:
+    print(team["teamName"]["default"])
+    print(team["teamAbbrev"]["default"])
