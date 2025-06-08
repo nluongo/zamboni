@@ -1,9 +1,11 @@
 import logging
+import pandas as pd
 from zamboni.db_con import DBConnector
 from zamboni.sport import Game
 from zamboni.utils import split_csv_line
 from collections import defaultdict
 from zamboni.utils import today_date_str
+from zamboni.sql.export_statements import export_statements
 
 logger = logging.getLogger(__name__)
 today_date = today_date_str()
@@ -195,8 +197,45 @@ class SQLHandler:
                         VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
                 cursor.execute(sql)
 
-    def query_games(self):
-        pass
+    def query(self, sql):
+        """
+        Query the database with the given SQL statement
+
+        :param sql: SQL statement to query information from db
+        :return: DataFrame with queried data
+        """
+        df = pd.read_sql(sql, self.db_con)
+        if len(df) == 0:
+            logging.info("No data read for export, exiting without creating file.")
+            return None
+        return df
+
+    def query_games(self, after_date=None, before_date=today_date):
+        """
+        Export games information with recency selection
+        """
+        export_sql = export_statements["games"]
+        # If after_date given, filter for only games after this date
+        if not after_date:
+            export_sql += f'WHERE games.datePlayed < "{before_date}" '
+        else:
+            export_sql += f'WHERE games.datePlayed < "{before_date}" '
+            export_sql += f'AND games.datePlayed >= "{after_date}" '
+        logging.debug(export_sql)
+        games = self.query(export_sql)
+        return games
+
+    def record_game_prediction(self, game_id, predicter_id, prediction):
+        """
+        Log a game prediction to the database
+        """
+        # Use ON CONFLICT to update if the gameID and predicterID already exist
+        sql = f'''INSERT INTO gamePredictions(gameID, predicterID, prediction, predictionDate)
+                  VALUES("{game_id}", "{predicter_id}", "{prediction}", "{today_date}")
+                  ON CONFLICT(gameID, predicterID) 
+                  DO UPDATE SET prediction="{prediction}", predictionDate="{today_date}"'''
+        with self.db_con as cursor:
+            cursor.execute(sql)
 
     def set_action_date(self, table_name, column_name, update_date=today_date):
         """

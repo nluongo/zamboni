@@ -1,25 +1,7 @@
-drop_view_statements = {
-    'games_per_team' :
-    """
-    DROP VIEW IF EXISTS games_per_team
-    """,
-    'games_with_previous' :
-    """
-    DROP VIEW IF EXISTS games_with_previous
-    """,
-    'games_prev_same_opp' :
-    """
-    DROP VIEW IF EXISTS games_prev_same_opp
-    """,
-    'games_history' :
-    """
-    DROP VIEW IF EXISTS games_history
-    """,
-    }
+drop_view_statements = "DROP VIEW IF EXISTS {view_name}"
 
 create_view_statements = {
-    'games_per_team' :
-    """ 
+    "games_per_team": """ 
     CREATE VIEW IF NOT EXISTS games_per_team
     AS
     SELECT 
@@ -42,9 +24,8 @@ create_view_statements = {
         homeTeamGoals AS oppGoals
     FROM games
     """,
-# Each row is a game and previous game for the same team and season. This is intended to allow for calculation of wins/record to date in that season for a game
-    'games_with_previous' :
-        """
+    # Each row is a game and previous game for the same team and season. This is intended to allow for calculation of wins/record to date in that season for a game
+    "games_with_previous": """
     CREATE VIEW IF NOT EXISTS games_with_previous
     AS
     SELECT 
@@ -76,9 +57,8 @@ create_view_statements = {
         ON other_games.id = other_games_per_team.gameID  
         AND games_per_team.teamID = other_games_per_team.teamID  
     """,
-# This holds the gameID and the date of the last game played between the same two teams
-    'games_prev_same_opp':
-        """
+    # This holds the gameID and the date of the last game played between the same two teams
+    "games_prev_same_opp": """
     CREATE VIEW IF NOT EXISTS games_prev_same_opp
     AS
     SELECT
@@ -100,9 +80,8 @@ create_view_statements = {
     LEFT OUTER JOIN games
         ON gwp2.prevGameID=games.id
     """,
-# This holds summarized historical information for each game and team
-    'games_history':
-        """
+    # This holds summarized historical information for each game and team
+    "games_history": """
     CREATE VIEW IF NOT EXISTS games_history 
     AS
     SELECT 
@@ -116,4 +95,4 @@ create_view_statements = {
     FROM games_with_previous
     GROUP BY gameID, teamID
     """,
-    }
+}

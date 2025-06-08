@@ -1,37 +1,7 @@
-drop_table_statements = {
-    'players' :
-    """
-    DROP TABLE IF EXISTS players
-    """,
-    'teams' :
-    """
-    DROP TABLE IF EXISTS teams
-    """,
-    'games' :
-    """
-    DROP TABLE IF EXISTS games
-    """,
-    'seaons' :
-    """
-    DROP TABLE IF EXISTS seaons
-    """,
-    'rosterEntries' :
-    """
-    DROP TABLE IF EXISTS rosterEntries
-    """,
-    'gamesLastExport' :
-    """
-    DROP TABLE IF EXISTS gamesLastExport
-    """,
-    'lastTraining' :
-    """
-    DROP TABLE IF EXISTS lastTraining
-    """,
-    }
+drop_table_statement = "DROP TABLE IF EXISTS {table_name};"
 
 create_table_statements = {
-    'players' :
-    """
+    "players": """
     CREATE TABLE IF NOT EXISTS players (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
@@ -42,8 +12,7 @@ create_table_statements = {
         position TEXT
         )
     """,
-    'teams' :
-    """
+    "teams": """
     CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
@@ -53,8 +22,7 @@ create_table_statements = {
         divisionAbbrev TEXT
         )
     """,
-    'games' :
-    """
+    "games": """
     CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
@@ -74,8 +42,7 @@ create_table_statements = {
         recordCreated INTEGER
         )
     """,
-    'seasons' :
-    """
+    "seasons": """
     CREATE TABLE IF NOT EXISTS seasons (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
@@ -83,8 +50,7 @@ create_table_statements = {
         endYear INTEGER
         )
     """,
-    'rosterEntries' :
-    """
+    "rosterEntries": """
     CREATE TABLE IF NOT EXISTS rosterEntries (
         id INTEGER PRIMARY KEY,
         apiID INTEGER,
@@ -95,16 +61,35 @@ create_table_statements = {
         endYear INTEGER
         )
     """,
-    'gamesLastExport' :
-    """
+    "gamesLastExport": """
     CREATE TABLE IF NOT EXISTS gamesLastExport (
         lastExportDate INTEGER
         )
     """,
-    'lastTraining' :
-    """
+    "lastTraining": """
     CREATE TABLE IF NOT EXISTS lastTraining (
         lastTrainingDate INTEGER
         )
     """,
-    }
+    "predicterRegister": """
+    CREATE TABLE IF NOT EXISTS predicterRegister (
+        id INTEGER PRIMARY KEY,
+        predicterName TEXT,
+        predicterType TEXT,
+        predicterPath TEXT,
+        trainable INTEGER,
+        active INTEGER
+        )
+    """,
+    "gamePredictions": """
+    CREATE TABLE IF NOT EXISTS gamePredictions (
+        gameID INTEGER NOT NULL,
+        predicterID INTEGER NOT NULL,
+        prediction INTEGER,
+        predictionDate INTEGER,
+        FOREIGN KEY (gameID) REFERENCES games(id),
+        FOREIGN KEY (predicterID) REFERENCES predicterRegister(id),
+        PRIMARY KEY (gameID, predicterID)
+        )
+    """,
+}

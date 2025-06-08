@@ -3,6 +3,7 @@ from .sql.table_creator import TableCreator
 from .api_caller import APICaller
 from .exporter import Exporter
 from .sql.sql_handler import SQLHandler
+from .predicter_service import PredicterService
 
 __all__ = [
     "DBConnector",
@@ -10,4 +11,5 @@ __all__ = [
     "APICaller",
     "Exporter",
     "SQLHandler",
+    "PredicterService",
 ]
