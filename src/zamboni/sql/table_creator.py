@@ -25,7 +25,7 @@ class TableCreator:
             create_statements = create_view_statements
         else:
             drop_statement = drop_table_statement
-            drop_statement = drop_statement.format(view_name=table_name)
+            drop_statement = drop_statement.format(table_name=table_name)
             create_statements = create_table_statements
 
         with self.con as cursor:

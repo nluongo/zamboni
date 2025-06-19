@@ -7,20 +7,34 @@ from sklearn.preprocessing import StandardScaler
 import torch
 from torch.utils.data import Dataset
 
-class ColumnTracker():
-    """ Class to track columns for various uses in data """
-    def __init__(self, columns, target='outcome', categorical=['homeTeamID', 'awayTeamID'], nonet=['datePlayed']):
+
+class ColumnTracker:
+    """Class to track columns for various uses in data"""
+
+    def __init__(
+        self,
+        columns,
+        target="outcome",
+        categorical=["homeTeamID", "awayTeamID"],
+        notrain=["id", "inOT", "datePlayed"],
+    ):
         self.columns = columns
         self.target = target
         self.categorical = categorical
-        self.nonet = nonet
-        self.inputs = [column for column in columns if column not in [target]+nonet]
+        self.notrain = notrain
+        self.inputs = [column for column in columns if column not in [target] + notrain]
 
     def get_noscale_columns(self):
-        return [self.target] + self.categorical + self.nonet
+        return [self.target] + self.categorical + self.notrain
 
-class ZamboniDataManager():
-    """ Manages data for NN training """
+    def get_scale_columns(self):
+        noscale_columns = self.get_noscale_columns()
+        return [column for column in self.inputs if column not in noscale_columns]
+
+
+class ZamboniDataManager:
+    """Manages data for NN training"""
+
     def __init__(self, data_path):
         self.data_path = data_path
         self.is_split = 0
@@ -30,10 +44,10 @@ class ZamboniDataManager():
         Read data from parquet file into dataframe
         """
         data = pd.read_parquet(self.data_path)
-        data = data[data['homeTeamID'] != -1]
-        data = data[data['awayTeamID'] != -1]
+        data = data[data["homeTeamID"] != -1]
+        data = data[data["awayTeamID"] != -1]
         self.data = data
-        
+
     def split_data(self, test_size=0.2, random_state=42):
         """
         Split into train and test sets
@@ -41,18 +55,27 @@ class ZamboniDataManager():
         param: test_size: Percentage of dataset for testing
         param: random_state: Seed for randomizing
         """
-        self.train_data, self.test_data = train_test_split(self.data, test_size=test_size, random_state=random_state, shuffle=False)
+        self.train_data, self.test_data = train_test_split(
+            self.data, test_size=test_size, random_state=random_state, shuffle=False
+        )
 
     def num_samples(self):
         return len(self.data)
 
-class ZamboniData():
-    """ One set of data for training or eval """
+
+class ZamboniData:
+    """One set of data for training or eval"""
+
     def __init__(self, data, column_tracker=None):
         self.data = data
         self.column_tracker = column_tracker
 
-    def define_columns(self, target_column='outcome', categorical_columns=['homeTeamID', 'awayTeamID'], nonet_columns=['datePlayed']):
+    def define_columns(
+        self,
+        target_column="outcome",
+        categorical_columns=["homeTeamID", "awayTeamID"],
+        nonet_columns=["datePlayed"],
+    ):
         """
         Define which column is the label and which will use categorical embedding
 
@@ -66,7 +89,7 @@ class ZamboniData():
         self.noscale_columns = [self.target_column] + self.categorical_columns
         self.nonet_columns = nonet_columns
 
-    def select_by_date(self, begin_date, end_date, filter_column='datePlayed'):
+    def select_by_date(self, begin_date, end_date, filter_column="datePlayed"):
         """
         Filter data by date in sequential training
 
@@ -91,16 +114,16 @@ class ZamboniData():
             self.scaler = StandardScaler()
         else:
             self.scaler = scaler
-        noscale_columns = self.column_tracker.get_noscale_columns()
+        scale_columns = self.column_tracker.get_scale_columns()
         if fit and transform:
-            features = self.scaler.fit_transform(self.data.drop(columns=noscale_columns))
+            features = self.scaler.fit_transform(self.data[scale_columns])
         elif fit:
-            features = self.scaler.fit(self.data.drop(columns=noscale_columns))
+            features = self.scaler.fit(self.data[scale_columns])
         elif transform:
-            features = self.scaler.transform(self.data.drop(columns=noscale_columns))
+            features = self.scaler.transform(self.data[scale_columns])
 
         # Recast as DataFrames
-        self.data_scaled = pd.DataFrame(features)
+        self.data_scaled = pd.DataFrame(features, columns=scale_columns)
 
     def readd_noscale_columns(self):
         """
@@ -108,7 +131,7 @@ class ZamboniData():
         """
         noscale_columns = self.column_tracker.get_noscale_columns()
         for column in noscale_columns:
-            if column in self.column_tracker.nonet:
+            if column in self.column_tracker.notrain:
                 continue
             self.data_scaled[column] = self.data[column].values
 
@@ -118,9 +141,11 @@ class ZamboniData():
         """
         target_column = self.column_tracker.target
         categorical_columns = self.column_tracker.categorical
-        nonet_columns = self.column_tracker.nonet
-        self.dataset = ZamboniDataset(self.data_scaled, target_column, categorical_columns, nonet_columns)
-        logging.debug(f'{len(self.dataset)} samples')
+        notrain_columns = self.column_tracker.notrain
+        self.dataset = ZamboniDataset(
+            self.data_scaled, target_column, categorical_columns, notrain_columns
+        )
+        logging.debug(f"{len(self.dataset)} samples")
 
     def create_dataloader(self, shuffle=False):
         """
@@ -142,8 +167,10 @@ class ZamboniData():
         self.create_dataset()
         self.create_dataloader(shuffle=shuffle)
 
+
 class ZamboniDataset(Dataset):
-    """ Custom Dataset class to handle parquet data """
+    """Custom Dataset class to handle parquet data"""
+
     def __init__(self, data, target_column, cat_features=None, nonet_columns=None):
         """
         Split columns based on features, labels, and data type

@@ -1,4 +1,4 @@
-drop_view_statements = "DROP VIEW IF EXISTS {view_name}"
+drop_view_statement = "DROP VIEW IF EXISTS {view_name}"
 
 create_view_statements = {
     "games_per_team": """ 

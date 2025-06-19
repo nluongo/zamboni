@@ -29,7 +29,8 @@ readme = "README.md"
 license = {text = "MIT"}
 
 [project.scripts]
-zamboni-main = "zamboni.main:main"
+zamboni = "zamboni.main:cli"
+backtest = "zamboni.backtest:main"
 download-games = "zamboni.api_download:download_games"
 
 [build-system]

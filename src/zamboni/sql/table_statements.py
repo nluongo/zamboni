@@ -85,7 +85,8 @@ create_table_statements = {
     CREATE TABLE IF NOT EXISTS gamePredictions (
         gameID INTEGER NOT NULL,
         predicterID INTEGER NOT NULL,
-        prediction INTEGER,
+        prediction REAL,
+        predictionBinary INTEGER,
         predictionDate INTEGER,
         FOREIGN KEY (gameID) REFERENCES games(id),
         FOREIGN KEY (predicterID) REFERENCES predicterRegister(id),

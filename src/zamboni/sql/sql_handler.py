@@ -230,10 +230,11 @@ class SQLHandler:
         Log a game prediction to the database
         """
         # Use ON CONFLICT to update if the gameID and predicterID already exist
-        sql = f'''INSERT INTO gamePredictions(gameID, predicterID, prediction, predictionDate)
-                  VALUES("{game_id}", "{predicter_id}", "{prediction}", "{today_date}")
+        prediction_bin = int(prediction > 0.5)
+        sql = f'''INSERT INTO gamePredictions(gameID, predicterID, prediction, predictionBinary, predictionDate)
+                  VALUES("{game_id}", "{predicter_id}", "{prediction}", "{prediction_bin}", "{today_date}")
                   ON CONFLICT(gameID, predicterID) 
-                  DO UPDATE SET prediction="{prediction}", predictionDate="{today_date}"'''
+                  DO UPDATE SET prediction="{prediction}", predictionBinary="{prediction_bin}", predictionDate="{today_date}"'''
         with self.db_con as cursor:
             cursor.execute(sql)
 

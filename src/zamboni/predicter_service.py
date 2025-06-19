@@ -57,13 +57,17 @@ class PredicterService:
         if predicter_class == HomeTeamWinsPredicter:
             # Special case for HomeTeamWinsPredicter, which does not require additional parameters
             return predicter_class(
-                id=predicter_id, name=predicter_name, active=predicter_active
+                id=predicter_id,
+                name=predicter_name,
+                trainable=False,
+                active=predicter_active,
             )
         elif predicter_class == NNGamePredicter:
             # For NNGamePredicter, we might need to pass the model path
             return predicter_class(
                 id=predicter_id,
                 name=predicter_name,
+                trainable=True,
                 active=predicter_active,
                 model_path=predicter_path,
             )
