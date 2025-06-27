@@ -225,6 +225,16 @@ class SQLHandler:
         games = self.query(export_sql)
         return games
 
+    def query_games_with_predictions(self, start_date, end_date):
+        """
+        Export games with predictions information with recency selection
+        """
+        export_sql = export_statements["games_with_predictions"]
+        export_sql = export_sql.format(start_date=start_date, end_date=end_date)
+        logging.debug(export_sql)
+        games_with_preds = self.query(export_sql)
+        return games_with_preds
+
     def record_game_prediction(self, game_id, predicter_id, prediction):
         """
         Log a game prediction to the database

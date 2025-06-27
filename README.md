@@ -7,7 +7,12 @@ Download a comprehensive set of NHL game, player, and team data and load into a 
 
 ## Installation
 
-First setup up your environment as you prefer. Then:
+First setup up your environment as you prefer. For example if using `venv`:
+
+` python -m venv venv `
+` source venv/bin/activate `
+
+Then:
 
 ` pip install . `
 
@@ -44,3 +49,17 @@ The ML model is trained from scratch if running for the first time, or increment
 #### Reporting
 
 After the model is updated to have been trained on all days before the current date, the model is evaluated on today's games. It is assumed that this is done before any outcomes for today's games are known. A log file is created with the predictions for each of today's games.
+
+#### Predicters
+
+Predicters are the name of the general class that implements the logic for predicting the outcome of a single game. It can be simple logic or it can be a machine learning model. Two examples, HomeTeamWinsPredicter and NNGamePredicter, are provided. Custom predicters can be implemented by inheriting from the GamePredicter base class.
+
+#### Backtesting
+
+A particular Predicter can be tested over a time range by using the `backtest` command. If the predicter has a trainable element, this will be done according to the appropriate strategy as described in the next section. Predictions for a given Predicter and date will be stored in the GamePredictions table of the database.
+
+#### Training Strategy
+
+There are many ways to train a machine learning for prediction over a range of time. For example, you can train over a some past range of games, freeze, your model, and then evaluate going forward. You can also start with an initialized model and train then predict iteratively over the whole date range, which gives a more accurate picture of the expected performance using the daily updates described above. The precise method for training is encapsulated in the TrainingStrategy class. Two strategies are compared in the notebook that can be run as:
+` jupyter lab notebooks/StrategyComparison.ipynb `
+

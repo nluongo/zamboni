@@ -80,6 +80,7 @@ class NNGamePredicter(GamePredicter):
         super().__init__(id, name, active, trainable)
         self.model_path = model_path
         self.trainer = None
+        self.model_init = None
         self.training_strategy = SequentialFromScratchStrategy
 
     def get_trainer(self, data, overwrite=False):

@@ -1,6 +1,5 @@
 export_statements = {
-    'games' :
-    """
+    "games": """
     SELECT id,
         homeTeamID,
         hgh.prevWonPercentage AS homePrevWonPercentage,
@@ -26,8 +25,7 @@ export_statements = {
     LEFT OUTER JOIN games_prev_same_opp gpso
         ON games.id=gpso.gameID
     """,
-    'games_init' :
-    """
+    "games_init": """
     SELECT homeTeamID,
            awayTeamID,
            dayOfYrPlayed,
@@ -35,10 +33,31 @@ export_statements = {
            outcome
        FROM games
     """,
-    'games_last_export' :
-    """
+    "games_last_export": """
     SELECT lastExportDate
     FROM gamesLastExport
     LIMIT 1
     """,
-    }
+    "games_with_predictions": """
+    SELECT games.id,
+        games.homeTeamID,
+        home.nameAbbrev AS homeAbbrev,
+        games.awayTeamID,
+        away.nameAbbrev AS awayAbbrev,
+        games.datePlayed,
+        games.homeTeamGoals,
+        games.awayTeamGoals,
+        games.outcome,
+        games.inOT,
+        gp.prediction,
+        p.predicterName
+    FROM games
+    INNER JOIN gamePredictions gp ON games.id = gp.gameID
+    INNER JOIN predicterRegister p ON gp.predicterID = p.id
+    INNER JOIN teams home ON games.homeTeamID = home.id
+    INNER JOIN teams away ON games.awayTeamID = away.id
+    WHERE p.active = 1
+    AND games.datePlayed >= "{start_date}"
+    AND games.datePlayed <= "{end_date}"
+    """,
+}

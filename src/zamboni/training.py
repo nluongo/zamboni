@@ -2,6 +2,7 @@ from datetime import timedelta
 from glob import glob
 import os
 import logging
+import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import torch
@@ -398,7 +399,7 @@ class ResultsAnalyzer:
     def __init__(self, preds, labels):
         self.preds = preds
         self.labels = labels
-        self.preds_bin = torch.round(self.preds)
+        self.preds_bin = np.round(self.preds)
 
     def get_accuracy(self, threshold=0.5):
         """
@@ -407,7 +408,7 @@ class ResultsAnalyzer:
         :param threshold: Cutoff for model predictions e.g. above 80% or below 20%
         :returns: Accuracy of model predictions
         """
-        preds_abs = torch.abs(self.preds)
+        preds_abs = np.abs(self.preds)
         above_mask = preds_abs > threshold
         below_mask = preds_abs < (1 - threshold)
         conf_mask = above_mask | below_mask
@@ -417,7 +418,7 @@ class ResultsAnalyzer:
         if len(preds_bin) == 0:
             return 0
 
-        preds_correct = torch.sum(preds_bin == labels)
+        preds_correct = np.sum(preds_bin == labels)
         num_preds = labels.shape[0]
         accuracy = preds_correct / num_preds
 

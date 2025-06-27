@@ -1,5 +1,6 @@
 import argparse
 import logging
+import numpy as np
 import sys
 from datetime import datetime
 from zamboni import SQLHandler, PredicterService
@@ -18,7 +19,7 @@ def main():
         "--predicter-name",
         type=str,
         required=True,
-        help="Import path to Predicter class (e.g., mymodule.NNGamePredicter)",
+        help="Name of the predicter in gamePredictions.name from DB",
     )
     parser.add_argument(
         "--games",
@@ -71,14 +72,23 @@ def main():
     games_df = games_df[known_teams_mask]
     zamboni_data = ZamboniData(games_df, column_tracker=column_tracker)
 
-    predicter.get_trainer(zamboni_data, overwrite=True)
-    _, preds, labels = predicter.run_strategy()
-    logging.debug(preds)
-    logging.debug(max(preds))
+    if predicter.trainable:
+        predicter.get_trainer(zamboni_data, overwrite=True)
+        _, preds, labels = predicter.run_strategy()
+        logging.debug(preds)
+        logging.debug(max(preds))
+    else:
+        preds = np.array(
+            [predicter.predict(game) for game in zamboni_data.data.itertuples()]
+        )
+        labels = zamboni_data.data["outcome"].values
     for i in range(len(games_df)):
         game = games_df.iloc[[i]]
         game_id = game["id"].item()
-        prediction = preds[i]
+        if not predicter.trainable:
+            prediction = predicter.predict(game)
+        else:
+            prediction = preds[i]
         sql_handler.record_game_prediction(game_id, predicter.id, prediction)
 
     results = ResultsAnalyzer(preds, labels)
@@ -88,9 +98,11 @@ def main():
     print(f"Accuracy at 80%: {results.get_accuracy(0.8):.2%}")
     print(f"Accuracy at 90%: {results.get_accuracy(0.9):.2%}")
 
-    if predicter.model_init:
+    if predicter.trainable and predicter.model_init:
         predicter.model_init.save_model(
-            args.model_path, predicter.trainer.end_epoch, predicter.trainer.end_loss
+            predicter.model_path,
+            predicter.trainer.end_epoch,
+            predicter.trainer.end_loss,
         )
 
 

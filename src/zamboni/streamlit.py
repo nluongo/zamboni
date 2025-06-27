@@ -58,17 +58,41 @@ try:
     api_response = requests.get(
         f"https://nicholas-luongo.com/zamboni/api/{selected_date}"
     ).json()
-    if len(api_response) == 0:
-        st.info("No predictions available for the selected date.")
-    for api_game in api_response:
-        home_team_abbrev = api_game["homeAbbrev"]
-        away_team_abbrev = api_game["awayAbbrev"]
-        predicted_winner = api_game["predictedWinner"]
-        predicted_confidence = api_game["predictedConfidence"]
-        home_team_goals = None
-        away_team_goals = None
-        st.text(f"{home_team_abbrev} - {away_team_abbrev}")
-        st.text(f"Predicted winner: {predicted_winner}")
-        st.text(f"Predicted confidence: {predicted_confidence}")
 except requests.JSONDecodeError:
     st.warning(f"No prediction file found for {selected_date_str}.")
+
+if len(api_response) == 0:
+    st.info("No predictions available for the selected date.")
+else:
+    predictions = sorted(
+        api_response, key=lambda x: (x["homeAbbrev"], x["predicterName"])
+    )
+    home_teams = set(prediction["homeAbbrev"] for prediction in predictions)
+    for home_team in home_teams:
+        matchup_predictions = [
+            prediction
+            for prediction in predictions
+            if prediction["homeAbbrev"] == home_team
+        ]
+        away_team = matchup_predictions[0]["awayAbbrev"]
+        st.subheader(f"{away_team} at {home_team}")
+        for prediction in matchup_predictions:
+            predicted_winner = prediction["predictedWinner"]
+            predicted_confidence = prediction["predictedConfidence"]
+            predicter_name = prediction["predicterName"]
+            outcome = prediction["outcome"]
+            home_team_goals = prediction["homeTeamGoals"]
+            away_team_goals = prediction["awayTeamGoals"]
+            st.text(f"Predicter name: {predicter_name}")
+            st.text(f"Predicted winner: {predicted_winner}")
+            st.text(f"Predicted confidence: {predicted_confidence * 100:.1f}%")
+            if home_team_goals > away_team_goals:
+                winner = home_team
+                winner_goals = home_team_goals
+                loser_goals = away_team_goals
+            else:
+                winner = away_team
+                winner_goals = away_team_goals
+                loser_goals = home_team_goals
+            st.text("----------")
+        st.text(f"Winner: {winner} ({winner_goals} - {loser_goals})")
