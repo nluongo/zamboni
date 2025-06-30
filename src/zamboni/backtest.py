@@ -75,13 +75,14 @@ def main():
     if predicter.trainable:
         predicter.get_trainer(zamboni_data, overwrite=True)
         _, preds, labels = predicter.run_strategy()
+        preds, labels = np.array(preds), np.array(labels)
         logging.debug(preds)
         logging.debug(max(preds))
     else:
         preds = np.array(
             [predicter.predict(game) for game in zamboni_data.data.itertuples()]
         )
-        labels = zamboni_data.data["outcome"].values
+        labels = np.array(zamboni_data.data["outcome"].values)
     for i in range(len(games_df)):
         game = games_df.iloc[[i]]
         game_id = game["id"].item()
