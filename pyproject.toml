@@ -25,6 +25,7 @@ dependencies = [
     "pre-commit>=4.2.0",
     "fastapi>=0.115.13",
     "uvicorn>=0.34.3",
+    "langgraph>=0.5.1",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -33,6 +34,7 @@ license = {text = "MIT"}
 [project.scripts]
 zamboni = "zamboni.main:cli"
 backtest = "zamboni.backtest:main"
+register-predicter = "zamboni.register_predicter:main"
 download-games = "zamboni.api_download:download_games"
 
 [build-system]

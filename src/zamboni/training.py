@@ -212,9 +212,9 @@ class TrainingStrategy:
     def __init__(self, data, trainer):
         self.data = data
         self.trainer = trainer
+        self.column_tracker = data.column_tracker
         self.all_preds = []
         self.all_labels = []
-        self.column_tracker = data.column_tracker
 
     def run(self):
         """
@@ -295,9 +295,7 @@ class SequentialStrategy(TrainingStrategy):
     """Run a sequential strategy for training and predicting"""
 
     def __init__(self, data, trainer, start_date=None, end_date=None):
-        self.data = data
-        self.column_tracker = data.column_tracker
-        self.trainer = trainer
+        super().__init__(data, trainer)
         self.start_date = start_date
         self.end_date = end_date
         self.yesterdays_games = None
@@ -377,20 +375,6 @@ class SequentialStrategy(TrainingStrategy):
             all_preds = torch.squeeze(all_preds, 1)
 
         return self.trainer, all_preds, all_labels
-
-
-class SequentialFromScratchStrategy(SequentialStrategy):
-    """Run a sequential strategy for training and predicting from scratch"""
-
-    def __init__(self, data, trainer, start_date=None, end_date=None):
-        super().__init__(data, trainer, start_date, end_date)
-        self.trainer = trainer
-        self.start_date = start_date
-        self.end_date = end_date
-        self.yesterdays_games = None
-        self.yesterdays_preds = None
-        self.yesterdays_date = None
-        self.day_delta = timedelta(days=1)
 
 
 class ResultsAnalyzer:

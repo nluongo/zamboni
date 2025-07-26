@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 from zamboni.db_con import DBConnector
-from zamboni.sport import Game
+from zamboni.sport import Game, TeamService
 from zamboni.utils import split_csv_line
 from collections import defaultdict
 from zamboni.utils import today_date_str
@@ -25,6 +25,14 @@ class SQLHandler:
         else:
             self.db_con = db_con
         self.team_id_dict = defaultdict(lambda: "Undefined")
+
+    def execute(self, sql):
+        """
+        Execute SQL statement
+        """
+        with self.db_con as cursor:
+            cursor.execute(sql)
+        self.db_con.commit()
 
     def get_team_id(self, id_dict, team_abbrev):
         """
@@ -89,10 +97,11 @@ class SQLHandler:
                     WHERE apiID="{game.api_id}"'''
         cursor.execute(sql)
 
-    def load_games_to_db(self, team_service, txt_path=None):
+    def load_games_to_db(self, txt_path=None, overwrite=False):
         """
         Load games from txt to db
         """
+        team_service = TeamService(self.db_con)
         if not txt_path:
             txt_path = f"{self.txt_dir}/games.txt"
         with open(txt_path, "r") as f, self.db_con as cursor:
@@ -104,7 +113,7 @@ class SQLHandler:
                     self.insert_game(game, cursor)
                 else:
                     api_id, outcome = exists_out
-                    if outcome == -1:
+                    if outcome == -1 or overwrite:
                         self.update_game(game, cursor)
                     else:
                         logging.debug(
@@ -248,6 +257,20 @@ class SQLHandler:
         with self.db_con as cursor:
             cursor.execute(sql)
 
+    def register_predicter(
+        self, name, predicter_class, path="", trainable=False, active=True
+    ):
+        """
+        Register a new predicter in the predicterRegister table
+        """
+        # Use ON CONFLICT to update if the predicterName already exists
+        sql = f'''INSERT INTO predicterRegister(predicterName, predicterType, predicterPath, trainable, active)
+                  VALUES("{name}", "{predicter_class}", "{path}", "{int(trainable)}", "{int(active)}")
+                  ON CONFLICT(predicterName) 
+                  DO UPDATE SET predicterType="{predicter_class}", predicterPath="{path}", trainable="{int(trainable)}", active="{int(active)}"'''
+        with self.db_con as cursor:
+            cursor.execute(sql)
+
     def set_action_date(self, table_name, column_name, update_date=today_date):
         """
         Set the date in a table tracking last action taken
@@ -287,17 +310,44 @@ class SQLHandler:
         out = self.get_action_date("gamesLastExport", "lastExportDate")
         return out
 
-    def set_last_training_date(self):
+    def set_last_training_date(self, predicter_id):
         """
         Update the date in lastTraining with current date
         """
-        self.set_action_date("lastTraining", "lastTrainingDate")
+        # Use ON CONFLICT to update if the gameID and predicterID already exist
+        sql = f'''INSERT INTO lastTraining(predicterID, lastTrainingDate)
+                  VALUES("{predicter_id}", "{today_date}")
+                  ON CONFLICT(predicterID) 
+                  DO UPDATE SET lastTrainingDate="{today_date}"'''
+        with self.db_con as cursor:
+            cursor.execute(sql)
 
-    def get_last_training_date(self):
+    def get_last_training_date(self, predicter_id):
         """
         Read the date in lastTraining
         """
-        out = self.get_action_date("lastTraining", "lastTrainingDate")
+        select_sql = f'''SELECT lastTrainingDate FROM lastTraining WHERE predicterID="{predicter_id}" LIMIT 1'''
+        with self.db_con as cursor:
+            query_res = cursor.execute(select_sql)
+        fetched = query_res.fetchone()
+        if fetched:
+            out = fetched[0]
+        else:
+            out = None
+        return out
+
+    def get_last_prediction_date(self, predicter_id):
+        """
+        Read the date in lastTraining
+        """
+        select_sql = f'''SELECT MAX(predictionDate) FROM gamePredictions WHERE predicterID="{predicter_id}"'''
+        with self.db_con as cursor:
+            query_res = cursor.execute(select_sql)
+        fetched = query_res.fetchone()
+        if fetched:
+            out = fetched[0]
+        else:
+            out = None
         return out
 
     def get_predicters(self):

@@ -68,6 +68,7 @@ create_table_statements = {
     """,
     "lastTraining": """
     CREATE TABLE IF NOT EXISTS lastTraining (
+        predicterID INTEGER PRIMARY KEY,
         lastTrainingDate INTEGER
         )
     """,

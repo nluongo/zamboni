@@ -86,10 +86,7 @@ def main():
     for i in range(len(games_df)):
         game = games_df.iloc[[i]]
         game_id = game["id"].item()
-        if not predicter.trainable:
-            prediction = predicter.predict(game)
-        else:
-            prediction = preds[i]
+        prediction = preds[i]
         sql_handler.record_game_prediction(game_id, predicter.id, prediction)
 
     results = ResultsAnalyzer(preds, labels)

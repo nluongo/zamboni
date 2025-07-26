@@ -7,7 +7,7 @@ Download a comprehensive set of NHL game, player, and team data and load into a 
 
 ## Installation
 
-First setup up your environment as you prefer. For example if using `venv`:
+First setup your environment as you prefer. For example if using `venv`:
 
 ` python -m venv venv `
 ` source venv/bin/activate `
@@ -63,3 +63,25 @@ A particular Predicter can be tested over a time range by using the `backtest` c
 There are many ways to train a machine learning for prediction over a range of time. For example, you can train over a some past range of games, freeze, your model, and then evaluate going forward. You can also start with an initialized model and train then predict iteratively over the whole date range, which gives a more accurate picture of the expected performance using the daily updates described above. The precise method for training is encapsulated in the TrainingStrategy class. Two strategies are compared in the notebook that can be run as:
 ` jupyter lab notebooks/StrategyComparison.ipynb `
 
+#### API
+
+Predictions from your models can be served via FastAPI and uvicorn. I can be launched by running:
+
+` python scripts/launch_api.py `
+
+Your model predictions for a given day can then be retrieved by accessing `/zamboni/api/{date}` e.g. `/zamboni/api/2025-06-14`. For a working example see `https://nicholas-luongo.com/zamboni/api/2025-06-14`.
+
+#### Streamlit
+
+A Streamlit app can be launched that displays the predictions for a chosen date. To launch run:
+
+` python streamlit run src/zamboni/streamlit.py `
+
+An example of the running dashboard can be found at:
+
+` https://zamboni.streamlit.app/ `
+
+A screenshot of the dashboard is shown below:
+
+![Streamlit](streamlit.png)
+*<p style="text-align: center;">A screenshot of the Streamlit dashboard.</p>*
