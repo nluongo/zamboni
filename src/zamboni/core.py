@@ -26,9 +26,6 @@ def run(
     db_con = db_connector.connect_db()
     sql_handler = SQLHandler(db_con=db_con)
 
-    if load_db or report:
-        team_service = TeamService(db_con)
-
     if report or train:
         predicters_service = PredicterService()
         predicters = predicters_service.get_predicters()
@@ -54,6 +51,9 @@ def run(
             "games_with_previous", is_view=True, recreate=force_recreate_tables
         )
         # table_creator.create_table('rosterEntries')
+
+    if load_db or report:
+        team_service = TeamService(db_con)
 
     if load_db:
         sql_handler.load_teams()

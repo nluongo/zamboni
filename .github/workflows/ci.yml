@@ -9,6 +9,16 @@ on:
       - master
 
 jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Build image
+      uses: actions/build-push-action@v6
+      with:
+        push: true
+        tags: nluongo/zamboni:latest
+
   test:
     runs-on: ubuntu-latest
 

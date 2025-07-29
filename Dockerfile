@@ -1,11 +1,9 @@
 FROM python:3.10
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-COPY ./src ./src
-COPY ./scripts ./scripts
-COPY pyproject.toml ./pyproject.toml
-COPY README.md ./README.md
+COPY . .
 
-RUN mkdir data
 RUN pip install .
+
+ENTRYPOINT ["/bin/bash", "docker_run.sh"]
