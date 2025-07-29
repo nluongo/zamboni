@@ -14,7 +14,7 @@ jobs:
 
     steps:
     - name: Build image
-      uses: actions/build-push-action@v6
+      uses: docker/build-push-action@v6
       with:
         push: true
         tags: nluongo/zamboni:latest
