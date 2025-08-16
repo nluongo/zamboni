@@ -64,7 +64,7 @@ class Game:
     """One game, defined by home team, away team and date"""
 
     def __str__(self):
-        return f"{self.home_abbrev} vs {self.away_abbrev} on {self.date}"
+        return f"{self.home_abbrev} (home) vs {self.away_abbrev} (away) on {self.date}"
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.home_abbrev}, {self.away_abbrev}, {self.date})"

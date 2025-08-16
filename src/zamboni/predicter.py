@@ -3,6 +3,7 @@ from zamboni.training import Trainer, ModelInitializer
 from zamboni.data_management import ZamboniData
 from zamboni.training import SequentialStrategy
 from zamboni.sql.sql_handler import SQLHandler
+from zamboni.agent import Agent
 
 
 class GamePredicter:
@@ -65,9 +66,10 @@ class HomeTeamWinsPredicter(GamePredicter):
     Example subclass that always predicts the home team wins.
     """
 
+    trainable = False
+
     def __init__(self, id, name, active):
         super().__init__(id, name, active)
-        self.trainable = False
 
     def predict(self, game):
         """
@@ -184,14 +186,17 @@ class AgentGamePredicter(GamePredicter):
     Example subclass that uses an agent for prediction.
     """
 
-    def __init__(self, id, name, active, agent):
+    trainable = False
+
+    def __init__(self, id, name, active):
         """
         Args:
             agent: An agent that can predict game outcomes.
         """
         super().__init__(id, name, active)
         self.trainable = False
-        self.agent = agent
+        self.agent_class = Agent
+        self.agent = self.agent_class()
 
     def predict(self, game):
         """

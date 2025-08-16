@@ -69,7 +69,9 @@ Do NOT use the gamePredictions table.
 
 You should limit yourself to at most 10 queries of the database.
 
-The last line of your output should your prediction in the form of a decimal number between 0 (away team winning) and 1 (home team winning).
+After each databse query provide an intermediate estimate of the prediction. If you run into the databse query limit, simply return the most recent prediction among these.
+
+The last line of your output should contain only a decimal number representing your prediction between 0 (away team winning) and 1 (home team winning).
 """.format(
     dialect="SQLite",
 )

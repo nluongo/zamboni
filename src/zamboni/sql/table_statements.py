@@ -75,7 +75,7 @@ create_table_statements = {
     "predicterRegister": """
     CREATE TABLE IF NOT EXISTS predicterRegister (
         id INTEGER PRIMARY KEY,
-        predicterName TEXT,
+        predicterName TEXT UNIQUE NOT NULL,
         predicterType TEXT,
         predicterPath TEXT,
         trainable INTEGER,
