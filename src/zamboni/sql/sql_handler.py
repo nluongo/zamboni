@@ -31,8 +31,9 @@ class SQLHandler:
         Execute SQL statement
         """
         with self.db_con as cursor:
-            cursor.execute(sql)
+            out = cursor.execute(sql)
         self.db_con.commit()
+        return out
 
     def get_team_id(self, id_dict, team_abbrev):
         """
@@ -61,28 +62,28 @@ class SQLHandler:
             query_res = cursor.execute(sql)
         return query_res.fetchone()
 
-    def insert_game(self, game, cursor):
+    def insert_game(self, game):
         """
         Insert game into db
         """
         sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
                     VALUES("{game.api_id}", \
-                           "{game.season_id}", \
-                           "{game.home_team_id}", \
-                           "{game.away_team_id}", \
-                           "{game.date_played}", \
-                           "{game.day_of_year_played}", \
-                           "{game.year_played}", \
-                           "{game.time_played}", \
-                           "{game.home_team_goals}", \
-                           "{game.away_team_goals}", \
-                           "{game.game_type_id}", \
-                           "{game.last_period_type_id}", \
-                           "{game.outcome}", \
-                           "{game.in_ot}", \
+                           "{getattr(game, "season_id", 0)}", \
+                           "{game.home_abbrev}", \
+                           "{game.away_abbrev}", \
+                           "{getattr(game, "date_played")}", \
+                           "{getattr(game, "day_of_year_played")}", \
+                           "{getattr(game, "year_played")}", \
+                           "{getattr(game, "time_played")}", \
+                           "{getattr(game, "home_team_goals")}", \
+                           "{getattr(game, "away_team_goals")}", \
+                           "{getattr(game, "game_type_id")}", \
+                           "{getattr(game, "last_period_type_id")}", \
+                           "{getattr(game, "outcome")}", \
+                           "{getattr(game, "in_ot")}", \
                            "{today_date}"
                            )'''
-        cursor.execute(sql)
+        self.execute(sql)
 
     def update_game(self, game, cursor):
         """

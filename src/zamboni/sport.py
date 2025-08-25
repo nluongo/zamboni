@@ -96,6 +96,16 @@ class Game:
         self.home_abbrev = home_abbrev
         self.away_abbrev = away_abbrev
         self.date = date
+        self.api_id = None
+        self.season_id = None
+        self.date_played = None
+        self.day_of_year_played = None
+        self.year_played = None
+        self.time_played = None
+        self.home_team_goals = None
+        self.away_team_goals = None
+        self.game_type_id = None
+        self.last_period_type_id = None
 
     @property
     def completed(self):
