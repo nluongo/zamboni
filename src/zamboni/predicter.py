@@ -3,7 +3,7 @@ from zamboni.training import Trainer, ModelInitializer
 from zamboni.data_management import ZamboniData
 from zamboni.training import SequentialStrategy
 from zamboni.sql.sql_handler import SQLHandler
-from zamboni.agent import Agent
+from zamboni.agent import SQLAgent
 
 
 class GamePredicter:
@@ -195,7 +195,7 @@ class AgentGamePredicter(GamePredicter):
         """
         super().__init__(id, name, active)
         self.trainable = False
-        self.agent_class = Agent
+        self.agent_class = SQLAgent
         self.agent = self.agent_class()
 
     def predict(self, game):
