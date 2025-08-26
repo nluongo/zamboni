@@ -7,7 +7,8 @@ test_path = "data/test.db"
 
 def create_db(path=test_path):
     db_connector = DBConnector(test_path)
-    return db_connector
+    db_con = db_connector.connect_db()
+    return db_con
 
 
 def test_db_creation():
@@ -18,8 +19,7 @@ def test_db_creation():
 
 
 def test_table_creation():
-    db_connector = create_db()
-    db_con = db_connector.connect_db()
+    db_con = create_db()
     sql_handler = SQLHandler(db_con=db_con)
     table_creator = TableCreator(db_con)
 
@@ -35,8 +35,7 @@ def test_table_creation():
 
 
 def test_team_creation():
-    db_connector = create_db()
-    db_con = db_connector.connect_db()
+    db_con = create_db()
     sql_handler = SQLHandler(db_con=db_con)
     table_creator = TableCreator(db_con)
 
@@ -57,8 +56,7 @@ def test_team_creation():
 
 
 def test_game_creation():
-    db_connector = create_db()
-    db_con = db_connector.connect_db()
+    db_con = create_db()
     sql_handler = SQLHandler(db_con=db_con)
     table_creator = TableCreator(db_con)
 

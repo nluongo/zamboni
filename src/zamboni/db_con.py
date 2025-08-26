@@ -41,4 +41,4 @@ class DBConnector:
         """
         Close connection
         """
-        self.con.close()
+        self.conn.close()
