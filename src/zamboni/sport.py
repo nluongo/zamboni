@@ -27,7 +27,7 @@ class TeamService:
     def id_from_abbrev(self, abbrev):
         team_id = self.abbrev_id_dict[abbrev]
         if team_id == -1:
-            logging.warning(f"ID for team with abbreviation {abbrev} not found")
+            logger.warning(f"ID for team with abbreviation {abbrev} not found")
         return team_id
 
     def abbrev_from_id(self, team_id):
@@ -35,7 +35,7 @@ class TeamService:
             self.build_abbrev_id_dicts()
         abbrev = self.id_abbrev_dict[team_id]
         if abbrev == "N/A":
-            logging.warning(f"Abbreviation for team with ID {team_id} not found")
+            logger.warning(f"Abbreviation for team with ID {team_id} not found")
         return abbrev
 
 
@@ -122,9 +122,7 @@ class Game:
         elif self.home_team_goals < self.away_team_goals:
             return 0
         else:
-            logging.warning(
-                f"Game {self} ended in a tie, which is not usually possible"
-            )
+            logger.warning(f"Game {self} ended in a tie, which is not usually possible")
             return -1
 
     @property
@@ -142,6 +140,6 @@ class Game:
         self.home_team_id = team_service.id_from_abbrev(self.home_abbrev)
         self.away_team_id = team_service.id_from_abbrev(self.away_abbrev)
         if self.home_team_id == -1:
-            logging.warning(f"ID for home team {self.home_abbrev} not found")
+            logger.warning(f"ID for home team {self.home_abbrev} not found")
         if self.away_team_id == -1:
-            logging.warning(f"ID for away team {self.away_abbrev} not found")
+            logger.warning(f"ID for away team {self.away_abbrev} not found")

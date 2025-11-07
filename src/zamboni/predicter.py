@@ -105,6 +105,8 @@ class NNGamePredicter(GamePredicter):
     Example subclass using a neural network for prediction.
     """
 
+    trainable = True
+
     def __init__(self, id, name, active, model_path):
         """
         Args:
@@ -130,12 +132,12 @@ class NNGamePredicter(GamePredicter):
 
     def update(self, zdata: ZamboniData):
         """
-        Updates the predicter with new game data.
-        If trainable, it initializes the trainer and runs the training strategy.
+          Updates the predicter with new game data.
+          If trainable, it initializes the trainer and runs the training strategy.
 
-        Args:
-            zdata: A ZamboniData object containing new game data.
-        """
+          Args:
+              zdata: A ZamboniData object containing new game data.
+        s"""
         if not self.trainer:
             self.get_trainer(zdata, overwrite=False)
 
@@ -148,6 +150,7 @@ class NNGamePredicter(GamePredicter):
             game_id = game["id"].item()
             prediction = preds[i]
             sql_handler.record_game_prediction(game_id, self.id, prediction)
+        sql_handler.set_last_training_date(self.id)
 
     def run_strategy(self):
         """
@@ -179,6 +182,26 @@ class NNGamePredicter(GamePredicter):
         pred = pred[0].item()
         # Assume output is a probability; threshold at 0.5
         return pred
+
+
+class BDTGamePredicter(GamePredicter):
+    """
+    Boosted decision tree predicter
+    """
+
+    trainable = True
+
+    def __init__(self, id, name, active, model_path):
+        """
+        Args:
+            model: A trained neural network model.
+        """
+        super().__init__(id, name, active)
+        self.model_path = model_path
+        self.trainer = None
+        self.model_init = None
+        self.trainable = True
+        self.training_strategy = SequentialStrategy
 
 
 class AgentGamePredicter(GamePredicter):

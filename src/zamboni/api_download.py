@@ -4,7 +4,7 @@ from datetime import datetime, date, timedelta
 import logging
 import json
 
-logging.basicConfig(level="INFO")
+logger = logging.getLogger(__name__)
 today_date = date.today()
 
 
@@ -13,7 +13,7 @@ def query_date_games(caller, in_date):
     month_str = zero_pad(in_date.month, 2)
     day_str = zero_pad(in_date.day, 2)
     date_string = f"{year_str}-{month_str}-{day_str}"
-    logging.info(f"Querying API at date {date_string}")
+    logger.info(f"Querying API at date {date_string}")
     output = caller.query([date_string], "game", throw_error=False)
     return output
 
@@ -47,7 +47,7 @@ def write_game_data(f, game, completed=True):
             away_goals = ""
             last_period_type = ""
     except KeyError:
-        logging.info(f"Error getting data for date {datetime_local.date()}")
+        logger.info(f"Error getting data for date {datetime_local.date()}")
         return
     f.write(
         f"{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_local.date()}, {day_of_yr}, {year}, {datetime_local.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n"
@@ -87,7 +87,7 @@ def write_game_data_all(f, game, first_line=False):
         values = ", ".join(map(str, flattened_game.values()))
         f.write(values + "\n")
     except Exception as e:
-        logging.error(f"Error flattening or writing game data: {e}")
+        logger.error(f"Error flattening or writing game data: {e}")
 
 
 def download_games(start_year=2024, out_path="data/games.txt", all=False):
@@ -113,9 +113,9 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
             game_date = last_line.split(",")[6].strip()
             last_date = datetime.fromisoformat(game_date).date()
             sched_date = last_date + day_delta
-            logging.info(f"Starting download at date {sched_date}")
+            logger.info(f"Starting download at date {sched_date}")
         else:
-            logging.info("No games downloaded, starting at the beginning..")
+            logger.info("No games downloaded, starting at the beginning..")
         while sched_date < today_date:
             output = query_date_games(caller, sched_date)
             if not output:
@@ -126,7 +126,7 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
                 day_date = day["date"]
                 games = day["games"]
                 if games == []:
-                    logging.info(f"No games found for date {day_date}")
+                    logger.info(f"No games found for date {day_date}")
                     sched_date += day_delta
                     continue
                 for game in day["games"]:
@@ -141,7 +141,7 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
     with open("data/games_today.txt", "w") as f:
         output = query_date_games(caller, today_date)
         if not output:
-            logging.info(f"No games found for date {today_date}")
+            logger.info(f"No games found for date {today_date}")
             return
         week = output["gameWeek"]
         for day in week:
@@ -150,7 +150,7 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
                 continue
             games = day["games"]
             if games == []:
-                logging.info(f"No games found for date {day_date}")
+                logger.info(f"No games found for date {day_date}")
                 continue
             for game in day["games"]:
                 write_game_data(f, game, completed=False)
@@ -206,7 +206,7 @@ def download_rosters(start_year=2024, out_path="data/rosterEntries.txt"):
     with open("data/rosterEntries.txt", "a") as roster_f:
         while start_year < datetime.now().year:
             end_year = start_year + 1
-            logging.info(f"Querying API for {start_year}-{end_year} season rosters")
+            logger.info(f"Querying API for {start_year}-{end_year} season rosters")
             for team in team_abbrevs:
                 api_ids = [team, start_year, end_year]
                 out = caller.query(api_ids, "roster", throw_error=False)
@@ -234,7 +234,7 @@ def download_teams(start_year=2024, out_path="data/teams.txt"):
     teams_to_write = set()
     while query_year <= cur_year:
         query_date = f"{query_year}-12-31"
-        logging.info(
+        logger.info(
             f"Querying API for teams during {query_year}-{query_year + 1} season"
         )
         info_json = caller.query([query_date], "standings")

@@ -12,6 +12,8 @@ import torch.optim as optim
 from zamboni.data_management import ZamboniData
 from zamboni.models.nn import EmbeddingNN
 
+logger = logging.getLogger(__name__)
+
 
 class Trainer:
     """Train and evaluate models"""
@@ -55,13 +57,13 @@ class Trainer:
         activation = nn.Sigmoid()
         with torch.no_grad():
             for inputs, cat_inputs, labels in loader:
-                logging.debug(
+                logger.debug(
                     f"Inputs: {inputs}, Cat Inputs: {cat_inputs}, Labels: {labels}"
                 )
                 outputs = self.model(inputs, cat_inputs)
-                logging.debug(f"Outputs: {outputs}")
+                logger.debug(f"Outputs: {outputs}")
                 outputs = activation(outputs)
-                logging.debug(f"Outputs: {outputs}")
+                logger.debug(f"Outputs: {outputs}")
                 all_outputs = torch.concat([all_outputs, outputs])
                 all_labels = torch.concat([all_labels, labels])
                 loss = self.calculate_loss(outputs, labels)
@@ -95,7 +97,7 @@ class Trainer:
                 test_loss, _, _ = self.eval(test_loader)
 
             if log_step:
-                logging.info(
+                logger.info(
                     f"Epoch [{epoch + 1}/{train_epochs}], Train loss: {running_loss / len(train_loader):.4f}, Test loss: {test_loss:.4f}"
                 )
         self.end_epoch = epoch
@@ -127,8 +129,8 @@ class ModelInitializer:
             and not overwrite
         ):
             checkpoint_path = self.get_latest_checkpoint()
-            logging.info(f"Model file found at {checkpoint_path}")
-            logging.info("Attempting to load..")
+            logger.info(f"Model file found at {checkpoint_path}")
+            logger.info("Attempting to load..")
             checkpoint = torch.load(checkpoint_path, weights_only=False)
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
@@ -136,7 +138,7 @@ class ModelInitializer:
             epoch = checkpoint["epoch"]
             loss = checkpoint["loss"]
         else:
-            logging.info("Creating and training new model.")
+            logger.info("Creating and training new model.")
         return self.model, self.optimizer, self.scaler, epoch, loss
 
     def initialize_model(self):
@@ -324,6 +326,7 @@ class SequentialStrategy(TrainingStrategy):
 
         all_labels = torch.tensor([], dtype=torch.float32)
         all_preds = torch.tensor([], dtype=torch.float32)
+        # Start sequential training and predicting
         while self.current_date <= self.end_date:
             scaler = StandardScaler()
             fit_today = True
@@ -337,7 +340,9 @@ class SequentialStrategy(TrainingStrategy):
                 all_pred_data = ZamboniData(all_prev_games, self.column_tracker)
                 all_pred_data.scale_data(scaler=scaler, fit=True)
 
+                # Train on yesterday's games
                 if len(self.yesterdays_games) > 0:
+                    logger.debug(f"Training with games from {self.yesterdays_date}")
                     yesterdays_data = ZamboniData(
                         self.yesterdays_games, self.column_tracker
                     )
@@ -347,19 +352,20 @@ class SequentialStrategy(TrainingStrategy):
                     yesterdays_data.create_dataloader()
                     self.trainer.train(yesterdays_data.loader, log_step=False)
 
+            # Predict on today's games
             todays_games = self.data.select_by_date(
                 self.current_date, self.current_date
             )
             if len(todays_games) > 0:
-                logging.debug(f"Todays games: {todays_games}")
+                logger.debug(f"Today's games: {todays_games}")
                 todays_data = ZamboniData(todays_games, self.column_tracker)
                 todays_data.scale_data(scaler=scaler, fit=fit_today)
                 todays_data.readd_noscale_columns()
                 todays_data.create_dataset()
                 todays_data.create_dataloader()
                 _, todays_preds, todays_labels = self.trainer.eval(todays_data.loader)
-                logging.debug(
-                    f"Todays predictions: {todays_preds}, labels: {todays_labels}"
+                logger.debug(
+                    f"Today's predictions: {todays_preds}, labels: {todays_labels}"
                 )
 
                 all_labels = torch.cat([all_labels, todays_labels])

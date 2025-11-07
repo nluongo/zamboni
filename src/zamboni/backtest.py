@@ -9,6 +9,7 @@ from zamboni.data_management import ZamboniData, ColumnTracker
 from zamboni.utils import today_date_str
 
 logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -50,7 +51,7 @@ def main():
     loaded_predicters = predicter_service.get_predicters()
     loaded_predicter_names = [predicter.name for predicter in loaded_predicters]
     if predicter_name not in loaded_predicter_names:
-        logging.error(f"Predicter '{predicter_name}' not found in database.")
+        logger.error(f"Predicter '{predicter_name}' not found in database.")
         sys.exit(1)
     for loaded_predicter in loaded_predicters:
         if loaded_predicter.name == predicter_name:
@@ -76,8 +77,6 @@ def main():
         predicter.get_trainer(zamboni_data, overwrite=True)
         _, preds, labels = predicter.run_strategy()
         preds, labels = np.array(preds), np.array(labels)
-        logging.debug(preds)
-        logging.debug(max(preds))
     else:
         preds = np.array(
             [predicter.predict(game) for game in zamboni_data.data.itertuples()]

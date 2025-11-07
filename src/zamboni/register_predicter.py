@@ -1,5 +1,5 @@
 import argparse
-from zamboni.sql.sql_handler import SQLHandler
+from zamboni.predicter_service import PredicterService
 import zamboni.predicter as predicter
 
 
@@ -33,16 +33,17 @@ def main():
         parser.error(f"Class '{args.predicter_class}' is not defined in predicter.py.")
     predicter_class = getattr(predicter, args.predicter_class)
 
-    # Validate path if trainable
+    # Validate path and trainable compatibility
     if predicter_class.trainable and not args.path:
         parser.error("--path is required if a trainable Predicter class is chosen.")
+    if not predicter_class.trainable and args.path:
+        args.path = ""
 
-    sql_handler = SQLHandler()
-    sql_handler.register_predicter(
+    predicter_service = PredicterService()
+    predicter_service.register_predicter(
         args.name,
         predicter_class.__name__,
         args.path,
-        predicter_class.trainable,
         int(args.active),
     )
 

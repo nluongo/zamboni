@@ -7,6 +7,8 @@ from sklearn.preprocessing import StandardScaler
 import torch
 from torch.utils.data import Dataset
 
+logger = logging.getLogger(__name__)
+
 
 class ColumnTracker:
     """Class to track columns for various uses in data"""
@@ -67,8 +69,12 @@ class ZamboniData:
     """One set of data for training or eval"""
 
     def __init__(self, data, column_tracker=None):
-        self.data = data
-        self.column_tracker = column_tracker
+        self.data = data[data["homeTeamID"] != -1]
+        self.data = self.data[self.data["awayTeamID"] != -1]
+        if not column_tracker:
+            self.column_tracker = ColumnTracker(data.columns.tolist())
+        else:
+            self.column_tracker = column_tracker
 
     def define_columns(
         self,
@@ -145,7 +151,7 @@ class ZamboniData:
         self.dataset = ZamboniDataset(
             self.data_scaled, target_column, categorical_columns, notrain_columns
         )
-        logging.debug(f"{len(self.dataset)} samples")
+        logger.debug(f"{len(self.dataset)} samples")
 
     def create_dataloader(self, shuffle=False):
         """
@@ -175,14 +181,16 @@ class ZamboniDataset(Dataset):
         """
         Split columns based on features, labels, and data type
 
-        :param data: Patht to data file
+        :param data: Path to data file
         :param target_column: Column containing labels
         :cat_features: Columns holding categorical features
         """
         self.feature_data = data.drop(columns=target_column)
         self.features = self.feature_data.values
-        self.cont_features = self.feature_data.drop(columns=cat_features).values
-        self.cat_features = data[cat_features].values
+        self.cont_features = (
+            self.feature_data.drop(columns=cat_features).astype("float64").values
+        )
+        self.cat_features = self.feature_data[cat_features].astype("int").values
         self.labels = data[target_column].values
 
     def __len__(self):

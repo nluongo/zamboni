@@ -6,7 +6,7 @@ from zamboni.predicter import (
 )  # Import your predictor classes as needed
 
 # Map predicterType strings to classes
-PREDICTER_TYPE_MAP = {
+predicter_type_map = {
     "GamePredicter": GamePredicter,
     "HomeTeamWinsPredicter": HomeTeamWinsPredicter,
     "NNGamePredicter": NNGamePredicter,
@@ -36,6 +36,8 @@ class PredicterService:
             "FROM predicterRegister"
         )
         predicters = []
+        if rows is None:
+            return predicters
         for index, row in rows.iterrows():
             row = row.to_dict()
             predicter = self.init_predicter(row)
@@ -52,14 +54,13 @@ class PredicterService:
         predicter_path = df_row.get("predicterPath")
         predicter_active = df_row.get("active", True)
 
-        predicter_class = PREDICTER_TYPE_MAP.get(predicter_type)
+        predicter_class = predicter_type_map.get(predicter_type)
 
         if predicter_class == HomeTeamWinsPredicter:
             # Special case for HomeTeamWinsPredicter, which does not require additional parameters
             return predicter_class(
                 id=predicter_id,
                 name=predicter_name,
-                trainable=False,
                 active=predicter_active,
             )
         elif predicter_class == NNGamePredicter:
@@ -67,9 +68,21 @@ class PredicterService:
             return predicter_class(
                 id=predicter_id,
                 name=predicter_name,
-                trainable=True,
                 active=predicter_active,
                 model_path=predicter_path,
             )
         else:
             raise ValueError(f"Unknown predicter class '{predicter_class}'.")
+
+    def register_predicter(self, name, predicter_class_name, path="", active=True):
+        """
+        Register a new predicter, adding entries to relevant tables
+        """
+        self.sql_handler.add_predicter_to_register(
+            name, predicter_class_name, path, active
+        )
+        predicter_class = predicter_type_map.get(predicter_class_name)
+        if not predicter_class.trainable:
+            return
+        predicter_id = self.sql_handler.predicter_id_from_name(name)
+        self.sql_handler.add_predicter_to_last_training(predicter_id)

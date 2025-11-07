@@ -1,9 +1,9 @@
+from collections import defaultdict
 import logging
 import pandas as pd
 from zamboni.db_con import DBConnector
 from zamboni.sport import Game, TeamService
 from zamboni.utils import split_csv_line
-from collections import defaultdict
 from zamboni.utils import today_date_str
 from zamboni.sql.export_statements import export_statements
 
@@ -69,8 +69,8 @@ class SQLHandler:
         sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
                     VALUES("{game.api_id}", \
                            "{getattr(game, "season_id", 0)}", \
-                           "{game.home_abbrev}", \
-                           "{game.away_abbrev}", \
+                           "{getattr(game, "home_team_id", -1)}", \
+                           "{getattr(game, "away_team_id", -1)}", \
                            "{getattr(game, "date_played")}", \
                            "{getattr(game, "day_of_year_played")}", \
                            "{getattr(game, "year_played")}", \
@@ -83,7 +83,8 @@ class SQLHandler:
                            "{getattr(game, "in_ot")}", \
                            "{today_date}"
                            )'''
-        self.execute(sql)
+        with self.db_con as cursor:
+            cursor.execute(sql)
 
     def update_game(self, game, cursor):
         """
@@ -111,13 +112,13 @@ class SQLHandler:
                 game.team_ids_from_abbrev(team_service)
                 exists_out = self.check_game_exists(game)
                 if not exists_out:
-                    self.insert_game(game, cursor)
+                    self.insert_game(game)
                 else:
                     api_id, outcome = exists_out
                     if outcome == -1 or overwrite:
                         self.update_game(game, cursor)
                     else:
-                        logging.debug(
+                        logger.debug(
                             f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                         )
         txt_path = f"{self.txt_dir}/games_today.txt"
@@ -127,9 +128,9 @@ class SQLHandler:
                 game.team_ids_from_abbrev(team_service)
                 exists_out = self.check_game_exists(game)
                 if not exists_out:
-                    self.insert_game(game, cursor)
+                    self.insert_game(game)
                 else:
-                    logging.debug(
+                    logger.debug(
                         f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                     )
 
@@ -216,7 +217,7 @@ class SQLHandler:
         """
         df = pd.read_sql(sql, self.db_con)
         if len(df) == 0:
-            logging.info("No data read for export, exiting without creating file.")
+            logger.info("No data read for export, exiting without creating file.")
             return None
         return df
 
@@ -231,7 +232,7 @@ class SQLHandler:
         else:
             export_sql += f'WHERE games.datePlayed < "{before_date}" '
             export_sql += f'AND games.datePlayed >= "{after_date}" '
-        logging.debug(export_sql)
+        logger.debug(export_sql)
         games = self.query(export_sql)
         return games
 
@@ -241,7 +242,7 @@ class SQLHandler:
         """
         export_sql = export_statements["games_with_predictions"]
         export_sql = export_sql.format(start_date=start_date, end_date=end_date)
-        logging.debug(export_sql)
+        logger.debug(export_sql)
         games_with_preds = self.query(export_sql)
         return games_with_preds
 
@@ -258,19 +259,38 @@ class SQLHandler:
         with self.db_con as cursor:
             cursor.execute(sql)
 
-    def register_predicter(
-        self, name, predicter_class, path="", trainable=False, active=True
+    def add_predicter_to_register(
+        self, name, predicter_class_name, path="", trainable=False, active=True
     ):
         """
         Register a new predicter in the predicterRegister table
         """
         # Use ON CONFLICT to update if the predicterName already exists
-        sql = f'''INSERT INTO predicterRegister(predicterName, predicterType, predicterPath, trainable, active)
-                  VALUES("{name}", "{predicter_class}", "{path}", "{int(trainable)}", "{int(active)}")
-                  ON CONFLICT(predicterName) 
-                  DO UPDATE SET predicterType="{predicter_class}", predicterPath="{path}", trainable="{int(trainable)}", active="{int(active)}"'''
+        register_sql = f'''INSERT INTO predicterRegister(predicterName, predicterType, predicterPath, trainable, active)
+                VALUES("{name}", "{predicter_class_name}", "{path}", "{int(trainable)}", "{int(active)}")
+                ON CONFLICT(predicterName) 
+                DO UPDATE SET predicterType="{predicter_class_name}", predicterPath="{path}", trainable="{int(trainable)}", active="{int(active)}"'''
         with self.db_con as cursor:
-            cursor.execute(sql)
+            cursor.execute(register_sql)
+
+    def predicter_id_from_name(self, predicter_name):
+        read_register_id_sql = f'''SELECT id FROM predicterRegister WHERE predicterName="{predicter_name}"'''
+        with self.db_con as cursor:
+            query_res = cursor.execute(read_register_id_sql)
+        fetched = query_res.fetchone()
+        if not fetched:
+            raise ValueError(
+                f"Could not retrieve new predicter ID from predicterRegister with name {predicter_name}"
+            )
+        else:
+            predicter_id = fetched[0]
+        return predicter_id
+
+    def add_predicter_to_last_training(self, predicter_id):
+        last_training_sql = f"""INSERT INTO lastTraining(predicterID, lastTrainingDate)
+                VALUES({predicter_id}, NULL)"""
+        with self.db_con as cursor:
+            _ = cursor.execute(last_training_sql)
 
     def set_action_date(self, table_name, column_name, update_date=today_date):
         """

@@ -3,6 +3,8 @@ import logging
 from pathlib import Path
 import os
 
+logger = logging.getLogger(__name__)
+
 
 class DBConnector:
     """Get connection to SQLite db"""
@@ -20,9 +22,9 @@ class DBConnector:
         Connect to db or create if it doesn't exist
         """
         if self.db_path.is_file():
-            logging.info(f"Opening existing DB at {self.db_path}")
+            logger.info(f"Opening existing DB at {self.db_path}")
         else:
-            logging.info(f"Creating new DB at {self.db_path}")
+            logger.info(f"Creating new DB at {self.db_path}")
             os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row  # Enable column access by name
