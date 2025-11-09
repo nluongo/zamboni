@@ -36,10 +36,6 @@ def run(
     db_con = db_connector.connect_db()
     sql_handler = SQLHandler(db_con=db_con)
 
-    if report or train:
-        predicters_service = PredicterService()
-        predicters = predicters_service.get_predicters()
-
     if create_tables:
         table_creator = TableCreator(db_con)
         table_creator.create_table("teams", recreate=force_recreate_tables)
@@ -71,6 +67,10 @@ def run(
         sql_handler.load_games_to_db()
         # sql_handler.load_players()
         # sql_handler.load_roster_entries()
+
+    if report or train:
+        predicters_service = PredicterService()
+        predicters = predicters_service.get_predicters()
 
     if train:
         for predicter in predicters:

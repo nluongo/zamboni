@@ -26,7 +26,7 @@ def cli():
         action="store_false",
         help="Skip creating tables",
     )
-    parser.set_defaults(create_tables=False)
+    parser.set_defaults(create_tables=True)
 
     # Flag to delete and recreate all tables and views
     parser.add_argument(

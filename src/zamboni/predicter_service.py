@@ -26,6 +26,15 @@ class PredicterService:
         """
         Queries the predicterRegister table and returns a list of Predicter objects.
         """
+        # First check if table exists
+        table_exists = self.sql_handler.query(
+            "SELECT name "
+            "FROM sqlite_master "
+            "WHERE type='table' AND name='predicterRegister'"
+        )
+        if table_exists is None:
+            return []
+
         rows = self.sql_handler.query(
             "SELECT id, "
             "predicterName, "

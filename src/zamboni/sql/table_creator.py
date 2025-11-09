@@ -1,5 +1,8 @@
+import logging
 from .table_statements import create_table_statements, drop_table_statement
 from .view_statements import create_view_statements, drop_view_statement
+
+logger = logging.getLogger(__name__)
 
 
 class TableCreator:
@@ -19,6 +22,7 @@ class TableCreator:
 
         :param statement: SQL expression creating table
         """
+        logger.info(f"Creating table {table_name}")
         if is_view:
             drop_statement = drop_view_statement
             drop_statement = drop_statement.format(view_name=table_name)
