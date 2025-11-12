@@ -4,7 +4,6 @@ from zamboni import SQLHandler, DBConnector, TableCreator
 from zamboni.predicter_service import PredicterService
 from zamboni.data_management import ZamboniData
 from zamboni.sport import TeamService
-from zamboni.utils import today_date_str
 
 loglevels = {
     "DEBUG": logging.DEBUG,
@@ -82,27 +81,27 @@ def run(
                 logger.info(
                     f"Last training date for {predicter.name}: {last_training_date}"
                 )
-                new_games = sql_handler.query_games(after_date=last_training_date)
+                new_games = sql_handler.query_games(start_date=last_training_date)
             else:
                 last_prediction_date = sql_handler.get_last_prediction_date(
                     predicter.id
                 )
-                new_games = sql_handler.query_games(after_date=last_prediction_date)
-            if new_games is None or len(new_games) == 0:
+                new_games = sql_handler.query_games(start_date=last_prediction_date)
+            if len(new_games) == 0:
                 continue
             games_data = ZamboniData(new_games)
             predicter.update(games_data)
 
-        if report:
-            todays_games = sql_handler.query_games(after_date=today_date_str())
-            if todays_games:
-                for predicter in predicters:
-                    if not predicter.active:
-                        continue
-                    logger.info(f"Running predicter: {predicter.name}")
-                    for game in todays_games.itertuples():
-                        game_id = game.id
-                        prediction = predicter.predict(game)
-                        logger.info(
-                            f"Predicted outcome for game {game_id}: {prediction}"
-                        )
+        # if report:
+        #    todays_games = sql_handler.query_games(start_date=today_date_str())
+        #    if len(todays_games) > 0:
+        #        for predicter in predicters:
+        #            if not predicter.active:
+        #                continue
+        #            logger.info(f"Running predicter: {predicter.name}")
+        #            for game in todays_games.itertuples():
+        #                game_id = game.id
+        #                prediction = predicter.predict(game)
+        #                logger.info(
+        #                    f"Predicted outcome for game {game_id}: {prediction}"
+        #                )

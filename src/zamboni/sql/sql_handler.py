@@ -216,22 +216,19 @@ class SQLHandler:
         :return: DataFrame with queried data
         """
         df = pd.read_sql(sql, self.db_con)
-        if len(df) == 0:
-            logger.info("No data read for export, exiting without creating file.")
-            return None
         return df
 
-    def query_games(self, after_date=None, before_date=today_date):
+    def query_games(self, start_date=None, end_date=today_date):
         """
         Export games information with recency selection
         """
         export_sql = export_statements["games"]
-        # If after_date given, filter for only games after this date
-        if not after_date:
-            export_sql += f'WHERE games.datePlayed < "{before_date}" '
+        # If start_date given, filter for only games after this date
+        if not start_date:
+            export_sql += f'WHERE games.datePlayed <= "{end_date}" '
         else:
-            export_sql += f'WHERE games.datePlayed < "{before_date}" '
-            export_sql += f'AND games.datePlayed >= "{after_date}" '
+            export_sql += f'WHERE games.datePlayed <= "{end_date}" '
+            export_sql += f'AND games.datePlayed >= "{start_date}" '
         logger.debug(export_sql)
         games = self.query(export_sql)
         return games
