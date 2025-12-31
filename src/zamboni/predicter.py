@@ -1,9 +1,9 @@
 from zamboni.data_management import ColumnTracker
 from zamboni.training import Trainer, ModelInitializer
 from zamboni.data_management import ZamboniData
-from zamboni.training import SequentialStrategy
+from zamboni.training import IncrementalStrategy, ConsecutiveStrategy
 from zamboni.sql.sql_handler import SQLHandler
-from zamboni.agent import SQLAgent
+# from zamboni.agent import SQLAgent
 
 
 class GamePredicter:
@@ -107,17 +107,18 @@ class NNGamePredicter(GamePredicter):
 
     trainable = True
 
-    def __init__(self, id, name, active, model_path):
+    def __init__(self, id, name, active, model_path, sql_handler):
         """
         Args:
             model: A trained neural network model.
         """
         super().__init__(id, name, active)
         self.model_path = model_path
+        self.sql_handler = sql_handler
         self.trainer = None
         self.model_init = None
         self.trainable = True
-        self.training_strategy = SequentialStrategy
+        self.training_strategy = IncrementalStrategy
 
     def get_trainer(self, data, overwrite=False):
         self.data = data
@@ -159,7 +160,7 @@ class NNGamePredicter(GamePredicter):
         """
         if not self.trainer:
             raise ValueError("Trainer not initialized. Call get_trainer first.")
-        strategy = self.training_strategy(self.data, self.trainer)
+        strategy = self.training_strategy(self.data, self.trainer, self.sql_handler)
         return strategy.run()
 
     def predict(self, game):
@@ -201,34 +202,46 @@ class BDTGamePredicter(GamePredicter):
         self.trainer = None
         self.model_init = None
         self.trainable = True
-        self.training_strategy = SequentialStrategy
+        self.training_strategy = ConsecutiveStrategy
+        self.sql_handler = SQLHandler()
+
+    def get_trainer(self, data, overwrite=False):
+        self.data = data
+        self.column_tracker = ColumnTracker(data.data.columns.tolist())
+        self.model_init = ModelInitializer(
+            self.model_path, "EmbeddingNN", self.column_tracker
+        )
+        self.model, self.optimizer, self.scaler, _, _ = self.model_init.get_model(
+            overwrite
+        )
+        self.trainer = Trainer(self.model, self.optimizer)
 
 
-class AgentGamePredicter(GamePredicter):
-    """
-    Example subclass that uses an agent for prediction.
-    """
-
-    trainable = False
-
-    def __init__(self, id, name, active):
-        """
-        Args:
-            agent: An agent that can predict game outcomes.
-        """
-        super().__init__(id, name, active)
-        self.trainable = False
-        self.agent_class = SQLAgent
-        self.agent = self.agent_class()
-
-    def predict(self, game):
-        """
-        Predicts the outcome using the agent.
-
-        Args:
-            game: A Game object containing game data.
-
-        Returns:
-            int: 1 if home team is predicted to win, 0 otherwise.
-        """
-        return self.agent.predict(game)
+# class AgentGamePredicter(GamePredicter):
+#    """
+#    Example subclass that uses an agent for prediction.
+#    """
+#
+#    trainable = False
+#
+#    def __init__(self, id, name, active):
+#        """
+#        Args:
+#            agent: An agent that can predict game outcomes.
+#        """
+#        super().__init__(id, name, active)
+#        self.trainable = False
+#        self.agent_class = SQLAgent
+#        self.agent = self.agent_class()
+#
+#    def predict(self, game):
+#        """
+#        Predicts the outcome using the agent.
+#
+#        Args:
+#            game: A Game object containing game data.
+#
+#        Returns:
+#            int: 1 if home team is predicted to win, 0 otherwise.
+#        """
+#        return self.agent.predict(game)
