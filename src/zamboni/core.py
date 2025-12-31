@@ -68,7 +68,7 @@ def run(
         # sql_handler.load_roster_entries()
 
     if report or train:
-        predicters_service = PredicterService()
+        predicters_service = PredicterService(sql_handler=sql_handler)
         predicters = predicters_service.get_predicters()
 
     if train:

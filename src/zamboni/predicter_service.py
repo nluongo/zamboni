@@ -19,8 +19,11 @@ class PredicterService:
     Service to load Predicter objects from the database using SQLHandler.
     """
 
-    def __init__(self, db_path="data/zamboni.db"):
-        self.sql_handler = SQLHandler(db_path)
+    def __init__(self, db_path="data/zamboni.db", sql_handler=None):
+        if sql_handler is None:
+            self.sql_handler = SQLHandler(db_path)
+        else:
+            self.sql_handler = sql_handler
 
     def get_predicters(self):
         """
@@ -79,6 +82,7 @@ class PredicterService:
                 name=predicter_name,
                 active=predicter_active,
                 model_path=predicter_path,
+                sql_handler=self.sql_handler,
             )
         else:
             raise ValueError(f"Unknown predicter class '{predicter_class}'.")

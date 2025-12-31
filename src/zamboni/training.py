@@ -1,5 +1,6 @@
 from datetime import timedelta
 from glob import glob
+import copy
 import os
 import logging
 import numpy as np
@@ -162,6 +163,8 @@ class ModelInitializer:
                 num_embed_categories,
                 embed_dim,
             )
+        elif self.model_class == "RegressionTree":
+            pass
         self.model = model
 
     def initialize_optimizer(self):
@@ -211,10 +214,10 @@ class ModelInitializer:
 class TrainingStrategy:
     """Run a training strategy for training and predicting"""
 
-    def __init__(self, data, trainer):
-        self.data = data
+    def __init__(self, prediction_data, trainer):
+        self.prediction_data = prediction_data
         self.trainer = trainer
-        self.column_tracker = data.column_tracker
+        self.column_tracker = prediction_data.column_tracker
         self.all_preds = []
         self.all_labels = []
 
@@ -244,8 +247,8 @@ class OneSplitStrategy(TrainingStrategy):
         :param date: Date to split data
         :returns: Data before and after the split date
         """
-        self.train_data = ZamboniData(self.data.select_by_date(None, date))
-        self.test_data = ZamboniData(self.data.select_by_date(date, None))
+        self.train_data = self.data.select_by_date(None, date)
+        self.test_data = self.data.select_by_date(date, None)
 
     def split_by_percentage(self, percentage):
         """
@@ -293,17 +296,37 @@ class OneSplitStrategy(TrainingStrategy):
         return self.trainer, all_preds, all_labels
 
 
-class SequentialStrategy(TrainingStrategy):
-    """Run a sequential strategy for training and predicting"""
+class ConsecutiveStrategy(TrainingStrategy):
+    """A strategy which involves some training process for each consecutive day"""
 
-    def __init__(self, data, trainer, start_date=None, end_date=None):
-        super().__init__(data, trainer)
-        self.start_date = start_date
+    day_delta = timedelta(days=1)
+
+    def __init__(self, prediction_data, trainer, sql_handler, start_date=None):
+        super().__init__(prediction_data, trainer)
+        self.sql_handler = sql_handler
+        # start_date is the first date in db if not defined
+        if start_date is None:
+            self.start_date = self.sql_handler.get_earliest_date_played()
+
+    def prediction_date_bounds(self, prediction_data):
+        first_game = prediction_data.iloc[0]
+        last_game = prediction_data.iloc[-1]
+        first_date = pd.to_datetime(first_game["datePlayed"])
+        last_date = pd.to_datetime(last_game["datePlayed"])
+        return first_date, last_date
+
+
+class IncrementalStrategy(ConsecutiveStrategy):
+    """Strategy that performs incremental training before prediction each day"""
+
+    def __init__(
+        self, prediction_data, trainer, sql_handler, start_date=None, end_date=None
+    ):
+        super().__init__(prediction_data, trainer, sql_handler, start_date=start_date)
         self.end_date = end_date
-        self.yesterdays_games = None
-        self.yesterdays_preds = None
-        self.yesterdays_date = None
-        self.day_delta = timedelta(days=1)
+        # self.yesterdays_games = []
+        # self.yesterdays_date = self.start_date - self.day_delta
+        # self.day_delta = timedelta(days=1)
 
     def run(self):
         """
@@ -312,58 +335,61 @@ class SequentialStrategy(TrainingStrategy):
         :returns: Trainer object, all predictions, all labels
         """
         # Determine first and last dates present in game data
-        first_game = self.data.data.iloc[0]
-        last_game = self.data.data.iloc[-1]
-        first_date = pd.to_datetime(first_game["datePlayed"])
-        last_date = pd.to_datetime(last_game["datePlayed"])
+        first_pred_date, last_pred_date = self.prediction_date_bounds(
+            self.prediction_data.data
+        )
 
         # Use start and end dates if provided, otherwise use first and last dates
         if not self.start_date:
-            self.start_date = first_date
-        self.current_date = self.start_date
+            self.start_date = self.sql_handler.get_earliest_date_played()
+        current_date = copy.deepcopy(first_pred_date)
         if not self.end_date:
-            self.end_date = last_date
+            self.end_date = copy.deepcopy(last_pred_date)
+        logger.debug(
+            f"First pred. date: {first_pred_date}\n"
+            f"Last pred. date: {last_pred_date}\n"
+            f"Start date: {self.start_date}\n"
+            f"End date: {self.end_date}"
+        )
+
+        all_games = self.sql_handler.query_games(self.start_date, self.end_date)
+        self.all_zdata = ZamboniData(all_games)
 
         all_labels = torch.tensor([], dtype=torch.float32)
         all_preds = torch.tensor([], dtype=torch.float32)
-        # Start sequential training and predicting
-        while self.current_date <= self.end_date:
+        # Start incremental  training and predicting
+        while current_date <= self.end_date:
+            yesterdays_date = current_date - self.day_delta
+            yesterdays_games = []
+            yesterdays_zdata = None
+
             scaler = StandardScaler()
             fit_today = True
-            if self.current_date != self.start_date:
+            if current_date != self.start_date:
                 fit_today = False
 
-                # Scale based on all data seen by the network so far
-                all_prev_games = self.data.select_by_date(
-                    self.start_date, self.yesterdays_date
+                # Fit scaler based on all data seen by the network so far
+                print(f"start_date: {self.start_date}")
+                print(f"yesterdays_date: {yesterdays_date}")
+                prev_zdata = self.all_zdata.select_by_date(
+                    self.start_date, yesterdays_date
                 )
-                all_pred_data = ZamboniData(all_prev_games, self.column_tracker)
-                all_pred_data.scale_data(scaler=scaler, fit=True)
+                prev_zdata.scale_data(scaler=scaler, fit=True)
 
                 # Train on yesterday's games
-                if len(self.yesterdays_games) > 0:
-                    logger.debug(f"Training with games from {self.yesterdays_date}")
-                    yesterdays_data = ZamboniData(
-                        self.yesterdays_games, self.column_tracker
-                    )
-                    yesterdays_data.scale_data(scaler=scaler, fit=False, transform=True)
-                    yesterdays_data.readd_noscale_columns()
-                    yesterdays_data.create_dataset()
-                    yesterdays_data.create_dataloader()
-                    self.trainer.train(yesterdays_data.loader, log_step=False)
+                if len(yesterdays_games) > 0:
+                    logger.debug(f"Training with games from {yesterdays_date}")
+                    yesterdays_zdata.prep_data(scaler)
+                    self.trainer.train(yesterdays_zdata.loader)
 
             # Predict on today's games
-            todays_games = self.data.select_by_date(
-                self.current_date, self.current_date
+            todays_zdata = self.prediction_data.select_by_date(
+                current_date, current_date
             )
-            if len(todays_games) > 0:
-                logger.debug(f"Today's games: {todays_games}")
-                todays_data = ZamboniData(todays_games, self.column_tracker)
-                todays_data.scale_data(scaler=scaler, fit=fit_today)
-                todays_data.readd_noscale_columns()
-                todays_data.create_dataset()
-                todays_data.create_dataloader()
-                _, todays_preds, todays_labels = self.trainer.eval(todays_data.loader)
+            if len(todays_zdata.data) > 0:
+                logger.debug(f"Today's games: {todays_zdata.data}")
+                todays_zdata.prep_data(scaler, fit_today)
+                _, todays_preds, todays_labels = self.trainer.eval(todays_zdata.loader)
                 logger.debug(
                     f"Today's predictions: {todays_preds}, labels: {todays_labels}"
                 )
@@ -371,9 +397,60 @@ class SequentialStrategy(TrainingStrategy):
                 all_labels = torch.cat([all_labels, todays_labels])
                 all_preds = torch.cat([all_preds, todays_preds])
 
-            self.yesterdays_games = todays_games
-            self.yesterdays_preds = todays_preds
-            self.yesterdays_date = self.current_date
+            yesterdays_zdata = todays_zdata
+            yesterdays_date = current_date
+
+            current_date += self.day_delta
+
+        if len(all_preds.shape) > 1:
+            all_preds = torch.squeeze(all_preds, 1)
+
+        return self.trainer, all_preds, all_labels
+
+
+class FullTrainStrategy(ConsecutiveStrategy):
+    """Train from scratch for each new day"""
+
+    def __init__(self, prediction_data, trainer, sql_handler, first_train_date=None):
+        super().__init__(prediction_data, trainer, sql_handler)
+        self.sql_handler = sql_handler
+        self.first_train_date = first_train_date
+
+    def run(self):
+        """
+        For each day, train on all previous games and predict current day's games
+
+        :returns: Trainer object, all predictions, all labels
+        """
+        first_date, last_date = self.prediction_date_bounds(self.prediction_data.data)
+        current_date = copy.deepcopy(first_date)
+
+        all_labels = torch.tensor([], dtype=torch.float32)
+        all_preds = torch.tensor([], dtype=torch.float32)
+        # Start training and predicting
+        while current_date <= last_date:
+            previous_date = current_date - self.day_delta
+
+            scaler = StandardScaler()
+            train_games = self.sql_handler.query_games(
+                self.first_train_date, previous_date
+            )
+            train_zdata = ZamboniData(train_games, self.column_tracker)
+            train_zdata.prep_data(scaler, fit=True)
+            self.trainer.train(train_zdata.loader)
+
+            # Predict on today's games
+            todays_zdata = self.data.select_by_date(
+                self.current_date, self.current_date
+            )
+            todays_zdata.prep_data(scaler)
+            logger.debug(f"Today's games: {todays_zdata.data}")
+            _, todays_preds, todays_labels = self.trainer.eval(todays_zdata.loader)
+            logger.debug(
+                f"Today's predictions: {todays_preds}, labels: {todays_labels}"
+            )
+            all_labels = torch.cat([all_labels, todays_labels])
+            all_preds = torch.cat([all_preds, todays_preds])
 
             self.current_date += self.day_delta
 

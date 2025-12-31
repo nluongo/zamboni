@@ -102,13 +102,13 @@ class ZamboniData:
         param: date: Date of games to select
         """
         datetime_column = pd.to_datetime(self.data[filter_column])
-        begin_date = pd.to_datetime(begin_date)
-        end_date = pd.to_datetime(end_date)
+        begin_date = pd.to_datetime(begin_date).strftime("%Y-%m-%d")
+        end_date = pd.to_datetime(end_date).strftime("%Y-%m-%d")
         begin_mask = datetime_column >= begin_date
         end_mask = datetime_column <= end_date
         mask = begin_mask & end_mask
         date_data = self.data[mask]
-        return date_data
+        return ZamboniData(date_data, self.column_tracker)
 
     def scale_data(self, scaler=None, fit=False, transform=True):
         """

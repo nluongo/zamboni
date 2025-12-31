@@ -245,6 +245,15 @@ class SQLHandler:
         games_with_preds = self.query(export_sql)
         return games_with_preds
 
+    def get_earliest_date_played(self):
+        """
+        Get game in db with earliest datePlayed.
+        """
+        games = self.query_games()
+        games_ordered = games.sort_values(by="datePlayed")
+        earliest_date = games_ordered["datePlayed"][0]
+        return pd.to_datetime(earliest_date)
+
     def record_game_prediction(self, game_id, predicter_id, prediction):
         """
         Log a game prediction to the database
