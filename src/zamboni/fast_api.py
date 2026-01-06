@@ -5,8 +5,12 @@ from zamboni.utils import confidence_from_prediction
 
 app = FastAPI()
 
+@app.get("/health")
+@app.head("/health")
+def health():
+        return {"status": "ok"}
 
-@app.get("/zamboni/api/{date_str}")
+@app.get("/api/{date_str}")
 def read_root(date_str):
     sql_handler = SQLHandler()
     games_df = sql_handler.query_games_with_predictions(date_str, date_str)

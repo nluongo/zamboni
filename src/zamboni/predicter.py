@@ -3,7 +3,7 @@ from zamboni.training import Trainer, ModelInitializer
 from zamboni.data_management import ZamboniData
 from zamboni.training import IncrementalStrategy, ConsecutiveStrategy
 from zamboni.sql.sql_handler import SQLHandler
-# from zamboni.agent import SQLAgent
+#from zamboni.agent import SQLAgent
 
 
 class GamePredicter:
@@ -217,7 +217,7 @@ class BDTGamePredicter(GamePredicter):
         self.trainer = Trainer(self.model, self.optimizer)
 
 
-# class AgentGamePredicter(GamePredicter):
+#class AgentGamePredicter(GamePredicter):
 #    """
 #    Example subclass that uses an agent for prediction.
 #    """
