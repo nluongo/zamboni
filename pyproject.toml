@@ -1,36 +1,55 @@
 [project]
 name = "zamboni"
 version = "0.1.0"
-description = "Default template for PDM package"
+description = "Hockey prediction and forecasting"
 authors = [
     {name = "nluongo", email = "nluongo@gmail.com"},
 ]
+
 dependencies = [
     "requests>=2.31.0",
-    "jupyter>=1.0.0",
-    "ruff>=0.11.11",
     "pandas>=2.2.2",
     "resolvelib>=1.0.1",
     "pyarrow>=17.0.0",
-    "pytest>=8.3.3",
-    "matplotlib>=3.9.2",
-    "torch>=2.5.1",
     "scikit-learn>=1.5.2",
     "python-crontab>=3.2.0",
-    "streamlit>=1.42.2",
     #"langchain>=0.3.25",
     #"langchain-community>=0.3.23",
     #"langchain-openai>=0.3.16",
     "faiss-cpu>=1.11.0",
-    "pre-commit>=4.2.0",
-    "fastapi>=0.115.13",
-    "uvicorn>=0.34.3",
     #"langgraph>=0.6.3",
     #"openai>=1.109.1",
+    #"sagemaker>=2.254.1"
+    "sqlalchemy>=2.0.45",
+    "PyYAML>=6.0.3",
+    "torch>=2.5.1"
 ]
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.115.13",
+    "uvicorn>=0.34.3",
+]
+dev = [
+    "pytest>=8.3.3",
+    "jupyter>=1.0.0",
+    "ruff>=0.11.11",
+    "pre-commit>=4.2.0",
+    "matplotlib>=3.9.2",
+]
+dashboard = [
+    "streamlit>=1.42.2",
+]
+ml = [
+    "torch>=2.5.1",
+]
+dbs = [
+    "psycopg2>=2.9.11",
+    "psycopg2-binary>=2.9.11",
+]
 
 [project.scripts]
 zamboni = "zamboni.main:cli"
