@@ -47,6 +47,15 @@ def today_date_str():
     return out
 
 
+def date_str_to_py(date_string):
+    """
+    Convert date in format received from API to python date
+    """
+    date_split = [int(part) for part in date_string.split("-")]
+    out = date(*date_split)
+    return out
+
+
 def split_csv_line(line):
     """
     Split line from text file into list

@@ -1,5 +1,10 @@
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date, time
+from enum import Enum
 import logging
+from sqlalchemy import select
+from .sql.tables import Teams
 from zamboni.utils import split_csv_line
 
 logger = logging.getLogger(__name__)
@@ -16,9 +21,8 @@ class TeamService:
 
     def build_abbrev_id_dicts(self):
         """Build a dictionary of team abbreviations to IDs"""
-        with self.db_con as con:
-            cursor = con.execute("SELECT id, nameAbbrev FROM teams")
-            rows = cursor.fetchall()
+        with self.db_con.connect() as connection:
+            rows = connection.execute(select(Teams.id, Teams.nameAbbrev))
             for row in rows:
                 team_id, abbrev = row
                 self.abbrev_id_dict[abbrev] = team_id
@@ -60,52 +64,75 @@ class Team:
         self.abbrev = abbrev
 
 
+class GameType(Enum):
+    REGULAR = 1
+    PRESEASON = 2
+    PLAYOFF = 3
+
+
+class LastPeriodType(Enum):
+    REG = 1
+    OT = 2
+    SO = 3
+
+
+@dataclass
 class Game:
     """One game, defined by home team, away team and date"""
 
-    def __str__(self):
-        return f"{self.home_abbrev} (home) vs {self.away_abbrev} (away) on {self.date}"
+    home_abbrev: str
+    away_abbrev: str
+    date_played: date
+    api_id: int
+    season_id: int = None
+    day_of_year_played: int = None
+    year_played: int = None
+    time_played: time = None
+    home_team_goals: int = None
+    away_team_goals: int = None
+    game_type: GameType = None
+    last_period_type: LastPeriodType = None
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.home_abbrev}, {self.away_abbrev}, {self.date})"
+    def __str__(self):
+        return f"{self.home_abbrev} (home) vs {self.away_abbrev} (away) on {self.date_played}"
 
     def __eq__(self, other):
         return (
             self.home_abbrev == other.home_abbrev
             and self.away_abbrev == other.away_abbrev
-            and self.date == other.date
+            and self.date_played == other.date_played
         )
 
     @classmethod
     def from_csv_line(self, line):
         line = split_csv_line(line)
-        game = Game(line[3], line[5], line[6])
-        game.api_id = line[0]
-        game.season_id = line[1]
-        game.date_played = line[6]
-        game.day_of_year_played = line[7]
-        game.year_played = line[8]
-        game.time_played = line[9]
-        game.home_team_goals = line[10]
-        game.away_team_goals = line[11]
-        game.game_type_id = line[12]
-        game.last_period_type_id = line[13]
+        home_abbrev = line[3]
+        away_abbrev = line[5]
+        date_played = line[6]
+        api_id = line[0]
+        season_id = line[1]
+        day_of_year_played = line[7]
+        year_played = line[8]
+        time_played = line[9]
+        home_team_goals = int(line[10]) if line[10] != "" else None
+        away_team_goals = int(line[11]) if line[11] != "" else None
+        game_type = line[12]
+        last_period_type = line[13]
+        game = Game(
+            home_abbrev,
+            away_abbrev,
+            date_played,
+            api_id,
+            season_id,
+            day_of_year_played,
+            year_played,
+            time_played,
+            home_team_goals,
+            away_team_goals,
+            game_type,
+            last_period_type,
+        )
         return game
-
-    def __init__(self, home_abbrev, away_abbrev, date):
-        self.home_abbrev = home_abbrev
-        self.away_abbrev = away_abbrev
-        self.date = date
-        self.api_id = None
-        self.season_id = None
-        self.date_played = None
-        self.day_of_year_played = None
-        self.year_played = None
-        self.time_played = None
-        self.home_team_goals = None
-        self.away_team_goals = None
-        self.game_type_id = None
-        self.last_period_type_id = None
 
     @property
     def completed(self):
@@ -129,8 +156,8 @@ class Game:
     def in_ot(self):
         """Check if game went to overtime"""
         if not self.completed:
-            return -1
-        if self.last_period_type_id == "REG":
+            return None
+        if self.last_period_type == "REG":
             return 0
         else:
             return 1

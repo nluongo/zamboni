@@ -1,4 +1,3 @@
-import requests
 from zamboni import APICaller
 
 caller = APICaller('player')

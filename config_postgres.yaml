@@ -1,0 +1,1 @@
+db_uri: "postgresql://postgres:mysecretpassword@localhost:5432/postgres"

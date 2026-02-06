@@ -16,13 +16,13 @@ dependencies = [
     #"langchain>=0.3.25",
     #"langchain-community>=0.3.23",
     #"langchain-openai>=0.3.16",
-    "faiss-cpu>=1.11.0",
+    #"faiss-cpu>=1.11.0",
     #"langgraph>=0.6.3",
     #"openai>=1.109.1",
     #"sagemaker>=2.254.1"
     "sqlalchemy>=2.0.45",
     "PyYAML>=6.0.3",
-    "torch>=2.5.1"
+    "pydantic>=2.12.5"
 ]
 requires-python = ">=3.10"
 readme = "README.md"

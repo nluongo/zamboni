@@ -1,10 +1,19 @@
 import argparse
+import yaml
 
 from zamboni.core import run
 
 
 def cli():
     parser = argparse.ArgumentParser(description="Process NHL data pipeline.")
+
+    # Configuration file
+    parser.add_argument(
+        "--config-file", default="config.yaml", help="Configuration file"
+    )
+
+    # Database URI
+    parser.add_argument("--db-uri", help="URI path to database")
 
     # Flag to control downloading NHL data.
     parser.add_argument("--download", action="store_true", help="Download NHL data")
@@ -82,16 +91,28 @@ def cli():
     parser.set_defaults(loglevel="WARNING")
 
     args = parser.parse_args()
-    download = args.download
-    create_tables = args.create_tables
-    load_db = args.load_db
-    export = args.export
-    report = args.report
-    train = args.train
-    force_recreate_tables = args.force_recreate_tables
-    loglevel = args.loglevel
+
+    with open(args.config_file, "r") as f:
+        config = yaml.safe_load(f)
+
+    args = vars(args)
+    # Remove unspecified arguments
+    args = {key: item for key, item in args.items() if item is not None}
+
+    config.update(args)
+
+    db_uri = config["db_uri"]
+    download = config["download"]
+    create_tables = config["create_tables"]
+    load_db = config["load_db"]
+    export = config["export"]
+    report = config["report"]
+    train = config["train"]
+    force_recreate_tables = config["force_recreate_tables"]
+    loglevel = config["loglevel"]
 
     run(
+        db_uri=db_uri,
         download=download,
         create_tables=create_tables,
         force_recreate_tables=force_recreate_tables,

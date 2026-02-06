@@ -1,38 +1,58 @@
 from collections import defaultdict
+from datetime import datetime
 import logging
 import pandas as pd
+from sqlalchemy import select, insert, update, text, func
+from sqlalchemy.exc import IntegrityError
+from .tables import (
+    Teams,
+    Games,
+    Players,
+    RosterEntries,
+    PredicterRegister,
+    GamePredictions,
+    LastTraining,
+    Seasons,
+)
+from .sql_helpers import upsert
 from zamboni.db_con import DBConnector
-from zamboni.sport import Game, TeamService
-from zamboni.utils import split_csv_line
-from zamboni.utils import today_date_str
-from zamboni.sql.export_statements import export_statements
+from zamboni.sport import Game
+from zamboni.utils import split_csv_line, get_today_date, date_str_to_py
+from zamboni.sql.statements import games_with_predictions_select, games_select
+
 
 logger = logging.getLogger(__name__)
-today_date = today_date_str()
+today_date = get_today_date()
+
+# Allow-list for tables/columns that may be used with set_action_date/get_action_date
+_ALLOWED_ACTION_TABLE_COLUMNS = {
+    "gamesLastExport": {"lastExportDate"},
+    "lastTraining": {"lastTrainingDate"},
+}
 
 
 class SQLHandler:
     """Load information from text files into SQLite database"""
 
-    def __init__(self, txt_dir="data", db_con=None):
+    def __init__(self, txt_dir="data", engine=None):
         """
         Establish connection to db
         """
         self.txt_dir = txt_dir
-        if not db_con:
+        if not engine:
             db_connector = DBConnector()
-            self.db_con = db_connector.connect_db()
+            self.engine = db_connector.connect_db()
         else:
-            self.db_con = db_con
+            self.engine = engine
         self.team_id_dict = defaultdict(lambda: "Undefined")
 
-    def execute(self, sql):
+    def execute(self, sql, params=None):
         """
-        Execute SQL statement
+        Execute SQL statement or text. Prefer typed Core/ORM methods where possible.
         """
-        with self.db_con as cursor:
-            out = cursor.execute(sql)
-        self.db_con.commit()
+        stmt = text(sql) if isinstance(sql, str) else sql
+        with self.engine.begin() as connection:
+            out = connection.execute(stmt, params or {})
         return out
 
     def get_team_id(self, id_dict, team_abbrev):
@@ -40,12 +60,11 @@ class SQLHandler:
         Get team ID from db if it exists and store in dictionary if not
         """
         if id_dict[team_abbrev] == "Undefined":
-            query_sql = f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
-            with self.db_con as cursor:
-                query_res = cursor.execute(query_sql)
-            query_out = query_res.fetchone()
-            if query_out:
-                team_id = query_out[0]
+            stmt = select(Teams.id).where(Teams.nameAbbrev == team_abbrev)
+            with self.engine.connect() as connection:
+                res = connection.execute(stmt).first()
+            if res:
+                team_id = res[0]
                 id_dict[team_abbrev] = team_id
             else:
                 team_id = -1
@@ -57,79 +76,173 @@ class SQLHandler:
         """
         Check if game exists in db
         """
-        sql = f"SELECT apiID, outcome FROM games WHERE apiID={game.api_id} "
-        with self.db_con as cursor:
-            query_res = cursor.execute(sql)
-        return query_res.fetchone()
+        with self.engine.connect() as connection:
+            stmt = select(Games.apiID, Games.outcome).where(Games.apiID == game.api_id)
+            query_res = connection.execute(stmt).first()
+        return query_res
+
+    def check_season_exists(self, season_api_id):
+        """
+        Check if season exists in db
+        """
+        with self.engine.connect() as connection:
+            stmt = select(Seasons.apiID).where(Seasons.apiID == season_api_id)
+            query_res = connection.execute(stmt).first()
+        return query_res
+
+    def check_team_exists(self, team_abbrev):
+        """
+        Check if team exists in db
+        """
+        with self.engine.connect() as connection:
+            stmt = select(Teams.nameAbbrev).where(Teams.nameAbbrev == team_abbrev)
+            query_res = connection.execute(stmt).first()
+        return query_res
+
+    def ensure_season(self, season_api_id: str) -> None:
+        int_api_id = int(season_api_id)
+        start_year = int_api_id // 10000
+        end_year = int_api_id % 10000
+        with self.engine.begin() as connection:
+            try:
+                with connection.begin_nested():
+                    connection.execute(
+                        insert(Seasons).values(
+                            apiID=season_api_id, startYear=start_year, endYear=end_year
+                        )
+                    )
+            except IntegrityError as e:
+                logger.debug(
+                    f"IntegrityError when inserting season {season_api_id}: {e}"
+                )
+                # season already exists (or other constraint violation)
+                # We only want to ignore the "already exists" case.
+                # If season_code is the only unique constraint here, it's fine to ignore.
+                pass
+
+    def ensure_team(self, abbrev: str) -> None:
+        with self.engine.begin() as connection:
+            try:
+                with connection.begin_nested():
+                    connection.execute(
+                        insert(Teams).values(
+                            name="Unknown",
+                            nameAbbrev=abbrev,
+                            conferenceAbbrev="Unknown",
+                            divisionAbbrev="Unknown",
+                        )
+                    )
+            except IntegrityError as e:
+                logger.debug(f"IntegrityError when inserting team {abbrev}: {e}")
+                # team already exists (or other constraint violation)
+                # We only want to ignore the "already exists" case.
+                # If season_code is the only unique constraint here, it's fine to ignore.
+                pass
 
     def insert_game(self, game):
         """
         Insert game into db
         """
-        sql = f'''INSERT INTO games(apiId, seasonID, homeTeamID, awayTeamID, datePlayed, dayOfYrPlayed, yrPlayed, timePlayed, homeTeamGoals, awayTeamGoals, gameTypeID, lastPeriodTypeID, outcome, inOT, recordCreated)
-                    VALUES("{game.api_id}", \
-                           "{getattr(game, "season_id", 0)}", \
-                           "{getattr(game, "home_team_id", -1)}", \
-                           "{getattr(game, "away_team_id", -1)}", \
-                           "{getattr(game, "date_played")}", \
-                           "{getattr(game, "day_of_year_played")}", \
-                           "{getattr(game, "year_played")}", \
-                           "{getattr(game, "time_played")}", \
-                           "{getattr(game, "home_team_goals")}", \
-                           "{getattr(game, "away_team_goals")}", \
-                           "{getattr(game, "game_type_id")}", \
-                           "{getattr(game, "last_period_type_id")}", \
-                           "{getattr(game, "outcome")}", \
-                           "{getattr(game, "in_ot")}", \
-                           "{today_date}"
-                           )'''
-        with self.db_con as cursor:
-            cursor.execute(sql)
+        date_played = getattr(game, "date_played")
+        date_played = date_str_to_py(date_played)
 
-    def update_game(self, game, cursor):
+        time_played = getattr(game, "time_played")
+        time_played = datetime.strptime(time_played, "%H:%M:%S").time()
+
+        season_api_id = getattr(game, "season_id")
+        home_abbrev = getattr(game, "home_abbrev")
+        away_abbrev = getattr(game, "away_abbrev")
+
+        self.ensure_season(season_api_id)
+        self.ensure_team(home_abbrev)
+        self.ensure_team(away_abbrev)
+
+        with self.engine.begin() as connection:
+            season_id = (
+                select(Seasons.id)
+                .where(Seasons.apiID == season_api_id)
+                .scalar_subquery()
+            )
+            home_team_id = (
+                select(Teams.id)
+                .where(Teams.nameAbbrev == home_abbrev)
+                .scalar_subquery()
+            )
+            away_team_id = (
+                select(Teams.id)
+                .where(Teams.nameAbbrev == away_abbrev)
+                .scalar_subquery()
+            )
+
+            logger.debug(f"About to insert game {game}")
+            stmt = insert(Games).values(
+                apiID=game.api_id,
+                seasonID=season_id,
+                homeTeamID=home_team_id,
+                awayTeamID=away_team_id,
+                datePlayed=date_played,
+                dayOfYrPlayed=getattr(game, "day_of_year_played"),
+                yrPlayed=getattr(game, "year_played"),
+                timePlayed=time_played,
+                homeTeamGoals=getattr(game, "home_team_goals"),
+                awayTeamGoals=getattr(game, "away_team_goals"),
+                gameTypeID=getattr(game, "game_type"),
+                lastPeriodTypeID=getattr(game, "last_period_type"),
+                outcome=getattr(game, "outcome"),
+                inOT=getattr(game, "in_ot"),
+                recordCreated=today_date,
+            )
+            logging.debug(f"Inserting game: {repr(game)}")
+            connection.execute(stmt)
+
+    def update_game(self, game):
         """
         Update game in db
         """
-        sql = f'''UPDATE games
-                    SET homeTeamGoals="{game.home_team_goals}",
-                        awayTeamGoals="{game.away_team_goals}",
-                        outcome="{game.outcome}",
-                        inOT="{game.in_ot}",
-                        lastPeriodTypeID="{game.last_period_type_id}"
-                    WHERE apiID="{game.api_id}"'''
-        cursor.execute(sql)
+        stmt = (
+            update(Games)
+            .where(Games.apiID == game.api_id)
+            .values(
+                homeTeamGoals=game.home_team_goals,
+                awayTeamGoals=game.away_team_goals,
+                outcome=game.outcome,
+                inOT=game.in_ot,
+                lastPeriodTypeID=game.last_period_type_id,
+            )
+        )
+        with self.engine.begin() as connection:
+            connection.execute(stmt)
 
     def load_games_to_db(self, txt_path=None, overwrite=False):
         """
         Load games from txt to db
         """
-        team_service = TeamService(self.db_con)
         if not txt_path:
             txt_path = f"{self.txt_dir}/games.txt"
-        with open(txt_path, "r") as f, self.db_con as cursor:
+        with open(txt_path, "r") as f:
             for line in f.readlines():
                 game = Game.from_csv_line(line)
-                game.team_ids_from_abbrev(team_service)
                 exists_out = self.check_game_exists(game)
                 if not exists_out:
                     self.insert_game(game)
                 else:
                     api_id, outcome = exists_out
-                    if outcome == -1 or overwrite:
-                        self.update_game(game, cursor)
+                    if outcome is None or overwrite:
+                        self.update_game(game)
                     else:
                         logger.debug(
                             f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                         )
         txt_path = f"{self.txt_dir}/games_today.txt"
-        with open(txt_path, "r") as f, self.db_con as cursor:
+        # with open(txt_path, "r") as f, self.engine.connect() as connection:
+        with open(txt_path, "r") as f:
             for line in f.readlines():
                 game = Game.from_csv_line(line)
-                game.team_ids_from_abbrev(team_service)
                 exists_out = self.check_game_exists(game)
                 if not exists_out:
                     self.insert_game(game)
                 else:
+                    api_id, outcome = exists_out
                     logger.debug(
                         f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                     )
@@ -140,15 +253,22 @@ class SQLHandler:
         """
         if not txt_path:
             txt_path = f"{self.txt_dir}/players.txt"
-        with open(txt_path) as f, self.db_con as cursor:
+        with open(txt_path) as f, self.engine.begin() as connection:
             for line in f.readlines():
                 api_id, full_name, first_name, last_name, number, position = (
                     split_csv_line(line)
                 )
-                sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
-                        VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
-                cursor.execute(sql)
-            self.db_connector.conn.commit()
+                stmt = insert(Players).values(
+                    apiID=api_id,
+                    name=full_name,
+                    firstName=first_name,
+                    lastName=last_name,
+                    number=number,
+                    position=position,
+                )
+                # sql = f'''INSERT INTO players(apiID, name, firstName, lastName, number, position)
+                #        VALUES("{api_id}", "{full_name}", "{first_name}", "{last_name}", "{number}", "{position}")'''
+                connection.execute(stmt)
 
     def load_roster_entries(self, txt_path=None):
         """
@@ -156,7 +276,7 @@ class SQLHandler:
         """
         if not txt_path:
             txt_path = f"{self.txt_dir}/rosterEntries.txt"
-        with open(txt_path, "r") as f, self.db_con as cursor:
+        with open(txt_path, "r") as f, self.engine.begin() as connection:
             for line in f.readlines():
                 line = [entry.strip() for entry in line.split(",")]
                 (
@@ -169,29 +289,33 @@ class SQLHandler:
                     end_year,
                 ) = line
 
-                team_id_sql = (
-                    f'''SELECT id FROM teams WHERE nameAbbrev="{team_abbrev}"'''
-                )
-                team_id_res = cursor.execute(team_id_sql)
-                team_id_fetch = team_id_res.fetchone()
-                if team_id_fetch is None:
-                    print("No team found with name {team_abbrev}, skipping record")
+                team_id_stmt = select(Teams.id).where(Teams.nameAbbrev == team_abbrev)
+                team_id_res = connection.execute(team_id_stmt).first()
+                if not team_id_res:
+                    print(f"No team found with name {team_abbrev}, skipping record")
                     continue
-                team_id = team_id_fetch[0]
+                team_id = team_id_res[0]
 
-                player_id_sql = f'''SELECT id FROM players WHERE firstName="{first_name}" AND lastName="{last_name}"'''
-                player_id_res = cursor.execute(player_id_sql)
-                player_id_fetch = player_id_res.fetchone()
-                if player_id_fetch is None:
+                player_id_stmt = select(Players.id).where(
+                    Players.firstName == first_name, Players.lastName == last_name
+                )
+                player_id_res = connection.execute(player_id_stmt).first()
+                if not player_id_res:
                     print(
                         f"No player found with name {first_name} {last_name}, skipping record"
                     )
                     continue
-                player_id = player_id_fetch[0]
+                player_id = player_id_res[0]
 
-                sql = f'''INSERT INTO rosterEntries(apiID, playerID, teamID, seasonID, startYear, endYear)
-                        VALUES("{api_id}", "{player_id}", "{team_id}", "{year}", "{start_year}", "{end_year}")'''
-                cursor.execute(sql)
+                insert_stmt = insert(RosterEntries).values(
+                    apiID=api_id,
+                    playerID=player_id,
+                    teamID=team_id,
+                    seasonID=year,
+                    startYear=start_year,
+                    endYear=end_year,
+                )
+                connection.execute(insert_stmt)
 
     def load_teams(self, txt_path=None):
         """
@@ -199,50 +323,70 @@ class SQLHandler:
         """
         if not txt_path:
             txt_path = f"{self.txt_dir}/teams.txt"
-        with open(txt_path, "r") as f, self.db_con as cursor:
-            delete_sql = """DELETE FROM teams"""
-            cursor.execute(delete_sql)
+        with open(txt_path, "r") as f, self.engine.begin() as connection:
             for line in f.readlines():
                 team_name, name_abbrev, conf_abbrev, div_abbrev = split_csv_line(line)
-                sql = f'''INSERT INTO teams(name, nameAbbrev, conferenceAbbrev, divisionAbbrev)
-                        VALUES("{team_name}", "{name_abbrev}", "{conf_abbrev}", "{div_abbrev}")'''
-                cursor.execute(sql)
+                exists_out = self.check_team_exists(name_abbrev)
+                if not exists_out:
+                    connection.execute(
+                        insert(Teams).values(
+                            name=team_name,
+                            nameAbbrev=name_abbrev,
+                            conferenceAbbrev=conf_abbrev,
+                            divisionAbbrev=div_abbrev,
+                        )
+                    )
 
-    def query(self, sql):
+    def load_seasons(self, txt_path=None):
         """
-        Query the database with the given SQL statement
+        Load seasons from txt to db
+        """
+        if not txt_path:
+            txt_path = f"{self.txt_dir}/seasons.txt"
+        with open(txt_path, "r") as f, self.engine.begin() as connection:
+            for line in f.readlines():
+                api_id, start_year, end_year = split_csv_line(line)
+                exists_out = self.check_season_exists(api_id)
+                if not exists_out:
+                    connection.execute(
+                        insert(Seasons).values(
+                            apiID=api_id, startYear=start_year, endYear=end_year
+                        )
+                    )
 
-        :param sql: SQL statement to query information from db
+    def query(self, sql, params=None):
+        """
+        Query the database with the given SQL statement or selectable.
+
+        :param sql: SQL string, SQLAlchemy text(), or SQLAlchemy selectable
+        :param params: optional dict of parameters
         :return: DataFrame with queried data
         """
-        df = pd.read_sql(sql, self.db_con)
+        logger.debug(f"About to query: {sql}")
+        logger.debug(f"engine: {self.engine}")
+        df = pd.read_sql(sql, self.engine, params=params)
         return df
 
     def query_games(self, start_date=None, end_date=today_date):
         """
         Export games information with recency selection
         """
-        export_sql = export_statements["games"]
-        # If start_date given, filter for only games after this date
-        if not start_date:
-            export_sql += f'WHERE games.datePlayed <= "{end_date}" '
-        else:
-            export_sql += f'WHERE games.datePlayed <= "{end_date}" '
-            export_sql += f'AND games.datePlayed >= "{start_date}" '
-        logger.debug(export_sql)
-        games = self.query(export_sql)
+        select_stmt = games_select(start_date, end_date)
+        logger.debug(select_stmt)
+        with self.engine.connect() as connection:
+            games = connection.execute(select_stmt).fetchall()
         return games
 
     def query_games_with_predictions(self, start_date, end_date=None):
         """
-        Export games with predictions information with recency selection
+        Export games with predictions information with recency selection. Consumed by FastAPI endpoint.
         """
         if end_date is None:
             end_date = start_date
-        export_sql = export_statements["games_with_predictions"]
-        export_sql = export_sql.format(start_date=start_date, end_date=end_date)
-        logger.debug(export_sql)
-        games_with_preds = self.query(export_sql)
+        select_stmt = games_with_predictions_select(start_date, end_date)
+        logger.debug(select_stmt)
+        with self.engine.connect() as connection:
+            games_with_preds = connection.execute(select_stmt).fetchall()
         return games_with_preds
 
     def get_earliest_date_played(self):
@@ -258,14 +402,17 @@ class SQLHandler:
         """
         Log a game prediction to the database
         """
-        # Use ON CONFLICT to update if the gameID and predicterID already exist
         prediction_bin = int(prediction > 0.5)
-        sql = f'''INSERT INTO gamePredictions(gameID, predicterID, prediction, predictionBinary, predictionDate)
-                  VALUES("{game_id}", "{predicter_id}", "{prediction}", "{prediction_bin}", "{today_date}")
-                  ON CONFLICT(gameID, predicterID) 
-                  DO UPDATE SET prediction="{prediction}", predictionBinary="{prediction_bin}", predictionDate="{today_date}"'''
-        with self.db_con as cursor:
-            cursor.execute(sql)
+        values = {
+            "gameID": game_id,
+            "predicterID": predicter_id,
+            "prediction": prediction,
+            "predictionBinary": prediction_bin,
+            "predictionDate": today_date,
+        }
+        upsert(
+            self.engine, GamePredictions.__table__, values, ["gameID", "predicterID"]
+        )
 
     def add_predicter_to_register(
         self, name, predicter_class_name, path="", trainable=False, active=True
@@ -273,118 +420,114 @@ class SQLHandler:
         """
         Register a new predicter in the predicterRegister table
         """
-        # Use ON CONFLICT to update if the predicterName already exists
-        register_sql = f'''INSERT INTO predicterRegister(predicterName, predicterType, predicterPath, trainable, active)
-                VALUES("{name}", "{predicter_class_name}", "{path}", "{int(trainable)}", "{int(active)}")
-                ON CONFLICT(predicterName) 
-                DO UPDATE SET predicterType="{predicter_class_name}", predicterPath="{path}", trainable="{int(trainable)}", active="{int(active)}"'''
-        with self.db_con as cursor:
-            cursor.execute(register_sql)
+        values = {
+            "predicterName": name,
+            "predicterType": predicter_class_name,
+            "predicterPath": path,
+            "trainable": int(trainable),
+            "active": int(active),
+        }
+        upsert(self.engine, PredicterRegister.__table__, values, ["predicterName"])
 
     def predicter_id_from_name(self, predicter_name):
-        read_register_id_sql = f'''SELECT id FROM predicterRegister WHERE predicterName="{predicter_name}"'''
-        with self.db_con as cursor:
-            query_res = cursor.execute(read_register_id_sql)
-        fetched = query_res.fetchone()
-        if not fetched:
+        stmt = select(PredicterRegister.id).where(
+            PredicterRegister.predicterName == predicter_name
+        )
+        with self.engine.connect() as connection:
+            res = connection.execute(stmt).first()
+        if not res:
             raise ValueError(
                 f"Could not retrieve new predicter ID from predicterRegister with name {predicter_name}"
             )
-        else:
-            predicter_id = fetched[0]
+        predicter_id = res[0]
         return predicter_id
 
     def add_predicter_to_last_training(self, predicter_id):
-        last_training_sql = f"""INSERT INTO lastTraining(predicterID, lastTrainingDate)
-                VALUES({predicter_id}, NULL)"""
-        with self.db_con as cursor:
-            _ = cursor.execute(last_training_sql)
+        values = {"predicterID": predicter_id, "lastTrainingDate": None}
+        upsert(self.engine, LastTraining.__table__, values, ["predicterID"])
 
-    def set_action_date(self, table_name, column_name, update_date=today_date):
-        """
-        Set the date in a table tracking last action taken
-        """
-        delete_sql = f"""DELETE FROM {table_name}"""
-        insert_sql = (
-            f'''INSERT INTO {table_name}({column_name}) VALUES("{update_date}")'''
-        )
-        with self.db_con as cursor:
-            cursor.execute(delete_sql)
-            cursor.execute(insert_sql)
+    # def set_action_date(self, table_name, column_name, update_date=today_date):
+    #    """
+    #    Set the date in a table tracking last action taken. Only allowed tables/columns are permitted.
+    #    """
+    #    if table_name not in _ALLOWED_ACTION_TABLE_COLUMNS or column_name not in _ALLOWED_ACTION_TABLE_COLUMNS[table_name]:
+    #        raise ValueError("Invalid table_name or column_name for action date")
+    #    delete_sql = text(f'DELETE FROM "{table_name}"')
+    #    delete_stmt = (delete(table_name))
+    #    insert_sql = text(f'INSERT INTO "{table_name}"("{column_name}") VALUES (:update_date)')
+    #    insert_stmt = (insert(table_name).values({column_name: update_date}))
+    #    with self.engine.begin() as conn:
+    #        conn.execute(delete_sql)
+    #        conn.execute(insert_sql, {"update_date": update_date})
 
-    def get_action_date(self, table_name, column_name):
-        """
-        Read the action date from a table
-        """
-        select_sql = f"""SELECT {column_name} FROM {table_name} LIMIT 1"""
-        with self.db_con as cursor:
-            query_res = cursor.execute(select_sql)
-        fetched = query_res.fetchone()
-        if fetched:
-            out = fetched[0]
-        else:
-            out = None
-        return out
+    # def get_action_date(self, table_name, column_name):
+    #    """
+    #    Read the action date from a table (validated).
+    #    """
+    #    if table_name not in _ALLOWED_ACTION_TABLE_COLUMNS or column_name not in _ALLOWED_ACTION_TABLE_COLUMNS[table_name]:
+    #        raise ValueError("Invalid table_name or column_name for action date")
+    #    select_sql = text(f'SELECT "{column_name}" FROM "{table_name}" LIMIT 1')
+    #    with self.engine.connect() as conn:
+    #        res = conn.execute(select_sql).first()
+    #    if res:
+    #        return res[0]
+    #    return None
 
-    def set_game_export_date(self):
-        """
-        Update the date in gamesLastExport with current date
-        """
-        self.set_action_date("gamesLastExport", "lastExportDate")
+    # def set_game_export_date(self):
+    #    """
+    #    Update the date in gamesLastExport with current date
+    #    """
+    #    self.set_action_date("gamesLastExport", "lastExportDate")
 
-    def get_game_export_date(self):
-        """
-        Read the date in gamesLastExport
-        """
-        out = self.get_action_date("gamesLastExport", "lastExportDate")
-        return out
+    # def get_game_export_date(self):
+    #    """
+    #    Read the date in gamesLastExport
+    #    """
+    #    out = self.get_action_date("gamesLastExport", "lastExportDate")
+    #    return out
 
     def set_last_training_date(self, predicter_id):
         """
         Update the date in lastTraining with current date
         """
-        # Use ON CONFLICT to update if the gameID and predicterID already exist
-        sql = f'''INSERT INTO lastTraining(predicterID, lastTrainingDate)
-                  VALUES("{predicter_id}", "{today_date}")
-                  ON CONFLICT(predicterID) 
-                  DO UPDATE SET lastTrainingDate="{today_date}"'''
-        with self.db_con as cursor:
-            cursor.execute(sql)
+        values = {"predicterID": predicter_id, "lastTrainingDate": today_date}
+        upsert(self.engine, LastTraining.__table__, values, ["predicterID"])
 
     def get_last_training_date(self, predicter_id):
         """
         Read the date in lastTraining
         """
-        select_sql = f'''SELECT lastTrainingDate FROM lastTraining WHERE predicterID="{predicter_id}" LIMIT 1'''
-        with self.db_con as cursor:
-            query_res = cursor.execute(select_sql)
-        fetched = query_res.fetchone()
-        if fetched:
-            out = fetched[0]
-        else:
-            out = None
-        return out
+        stmt = select(LastTraining.lastTrainingDate).where(
+            LastTraining.predicterID == predicter_id
+        )
+        with self.engine.connect() as connection:
+            res = connection.execute(stmt).first()
+        return res[0] if res else None
 
     def get_last_prediction_date(self, predicter_id):
         """
-        Read the date in lastTraining
+        Read the date of the latest prediction for a predicter
         """
-        select_sql = f'''SELECT MAX(predictionDate) FROM gamePredictions WHERE predicterID="{predicter_id}"'''
-        with self.db_con as cursor:
-            query_res = cursor.execute(select_sql)
-        fetched = query_res.fetchone()
-        if fetched:
-            out = fetched[0]
-        else:
-            out = None
-        return out
+        stmt = select(func.max(GamePredictions.predictionDate)).where(
+            GamePredictions.predicterID == predicter_id
+        )
+        with self.engine.connect() as connection:
+            res = connection.execute(stmt).scalar()
+        return res
 
     def get_predicters(self):
         """
         Get the predicters from the db
         """
-        sql = "SELECT id, predicterName, predicterType, predicterPath, trainable, active FROM predicterRegister"
-        with self.db_con as cursor:
-            query_res = cursor.execute(sql)
-        out = [list(row) for row in query_res.fetchall()]
+        stmt = select(
+            PredicterRegister.id,
+            PredicterRegister.predicterName,
+            PredicterRegister.predicterType,
+            PredicterRegister.predicterPath,
+            PredicterRegister.trainable,
+            PredicterRegister.active,
+        )
+        with self.engine.connect() as connection:
+            rows = connection.execute(stmt).fetchall()
+        out = [list(row) for row in rows]
         return out

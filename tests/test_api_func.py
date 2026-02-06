@@ -1,4 +1,12 @@
 from zamboni import APICaller
+from zamboni.nhl_models import (
+    GameDay,
+    GameScheduleResponse,
+    StandingsResponse,
+    PlayerResponse,
+    Game,
+    RosterResponse,
+)
 
 
 def test_url_base():
@@ -6,29 +14,33 @@ def test_url_base():
     assert url_base == "https://api-web.nhle.com/v1/"
 
 
-def test_standings_url():
+def test_standings_model():
     caller = APICaller()
     caller.set_url_template("standings")
-    url = caller.url
-    assert url == "https://api-web.nhle.com/v1/standings/{}"
+    out = caller.query(record_ids=[20232024], record_type="standings")
+    assert isinstance(out, StandingsResponse)
 
 
 def test_player_url():
     caller = APICaller()
     caller.set_url_template("player")
-    url = caller.url
-    assert url == "https://api-web.nhle.com/v1/player/{}/landing"
+    out = caller.query(record_ids=[8478402], record_type="player")
+    assert isinstance(out, PlayerResponse)
 
 
 def test_game_url():
     caller = APICaller()
     caller.set_url_template("game")
-    url = caller.url
-    assert url == "https://api-web.nhle.com/v1/schedule/{}"
+    out = caller.query(record_ids=["2025-01-24"], record_type="game")
+    assert (
+        isinstance(out, GameScheduleResponse)
+        and isinstance(out.gameWeek[0], GameDay)
+        and isinstance(out.gameWeek[0].games[0], Game)
+    )
 
 
 def test_roster_url():
     caller = APICaller()
     caller.set_url_template("roster")
-    url = caller.url
-    assert url == "https://api-web.nhle.com/v1/roster/{}/{}{}"
+    out = caller.query(record_ids=[8478402, 20232024, "A"], record_type="roster")
+    assert isinstance(out, RosterResponse)

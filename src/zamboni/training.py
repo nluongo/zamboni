@@ -6,12 +6,11 @@ import logging
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-import torch
-import torch.nn as nn
-import torch.optim as optim
 
 from zamboni.data_management import ZamboniData
 from zamboni.models.nn import EmbeddingNN
+from zamboni.nn_data import create_dataloader, create_dataset
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +19,32 @@ class Trainer:
     """Train and evaluate models"""
 
     def __init__(self, model, optimizer, criterion=None, load_epoch=0, load_loss=0):
+        """
+        Docstring for __init__
+        
+        :param self: Description
+        :param model: Description
+        :param optimizer: Description
+        :param criterion: Description
+        :param load_epoch: Description
+        :param load_loss: Description
+        """
+        try:
+            import torch
+        except ImportError as e:
+            logger.error("PyTorch is not installed. Please install PyTorch to use the Trainer class.")
+            raise e
+        self._torch = torch
+
         self.model = model
         self.optimizer = optimizer
         self.load_epoch = load_epoch
         self.load_loss = load_loss
         if criterion is None:
             if self.model.num_classes > 1:
-                self.criterion = nn.CrossEntropyLoss()
+                self.criterion = self._torch.nn.CrossEntropyLoss()
             else:
-                self.criterion = nn.BCEWithLogitsLoss()
+                self.criterion = self._torch.nn.BCEWithLogitsLoss()
 
     def calculate_loss(self, outputs, labels):
         """
@@ -40,7 +56,7 @@ class Trainer:
         """
         if self.model.num_classes == 1:
             labels = labels.float()
-            outputs = torch.squeeze(outputs, 1)
+            outputs = self._torch.squeeze(outputs, 1)
         loss = self.criterion(outputs, labels)
         return loss
 
@@ -53,10 +69,10 @@ class Trainer:
         """
         self.model.eval()
         total_loss = 0
-        all_labels = torch.tensor([])
-        all_outputs = torch.tensor([])
-        activation = nn.Sigmoid()
-        with torch.no_grad():
+        all_labels = self._torch.tensor([])
+        all_outputs = self._torch.tensor([])
+        activation = self._torch.nn.Sigmoid()
+        with self._torch.no_grad():
             for inputs, cat_inputs, labels in loader:
                 logger.debug(
                     f"Inputs: {inputs}, Cat Inputs: {cat_inputs}, Labels: {labels}"
@@ -65,8 +81,8 @@ class Trainer:
                 logger.debug(f"Outputs: {outputs}")
                 outputs = activation(outputs)
                 logger.debug(f"Outputs: {outputs}")
-                all_outputs = torch.concat([all_outputs, outputs])
-                all_labels = torch.concat([all_labels, labels])
+                all_outputs = self._torch.cat([all_outputs, outputs])
+                all_labels = self._torch.cat([all_labels, labels])
                 loss = self.calculate_loss(outputs, labels)
                 total_loss += loss.item()
         loss_per_sample = total_loss / len(loader)
@@ -109,6 +125,13 @@ class ModelInitializer:
     """Create, save, and load models"""
 
     def __init__(self, model_dir_path, model_class, column_tracker):
+        try:
+            import torch
+        except ImportError as e:
+            logger.error("PyTorch is not installed. Please install PyTorch to use the Trainer class.")
+            raise e
+        self._torch = torch
+
         self.model_dir_path = model_dir_path
         self.model_class = model_class
         self.column_tracker = column_tracker
@@ -132,7 +155,7 @@ class ModelInitializer:
             checkpoint_path = self.get_latest_checkpoint()
             logger.info(f"Model file found at {checkpoint_path}")
             logger.info("Attempting to load..")
-            checkpoint = torch.load(checkpoint_path, weights_only=False)
+            checkpoint = self._torch.load(checkpoint_path, weights_only=False)
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.scaler = checkpoint["scaler_state_dict"]
@@ -171,7 +194,7 @@ class ModelInitializer:
         """
         Create optimizer
         """
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)  # noqa
 
     def initialize_scaler(self):
         """
@@ -199,7 +222,7 @@ class ModelInitializer:
         """
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        torch.save(
+        self._torch.save(
             {
                 "epoch": epoch,
                 "model_state_dict": self.model.state_dict(),
@@ -275,8 +298,8 @@ class OneSplitStrategy(TrainingStrategy):
         scaler = StandardScaler()
         self.train_data.scale_data(scaler=scaler, fit=True)
         self.train_data.readd_noscale_columns()
-        self.train_data.create_dataset()
-        self.train_data.create_dataloader()
+        self.train_data.dataset = create_dataset(self.train_data)
+        self.train_data.loader = create_dataloader(self.train_data.dataset)
 
         # Train model
         self.trainer.train(self.train_data.loader)
@@ -284,14 +307,14 @@ class OneSplitStrategy(TrainingStrategy):
         # Scale test data
         self.test_data.scale_data(scaler=scaler, fit=False, transform=True)
         self.test_data.readd_noscale_columns()
-        self.test_data.create_dataset()
-        self.test_data.create_dataloader()
+        self.test_data.dataset = create_dataset(self.test_data)
+        self.test_data.loader = create_dataloader(self.test_data.dataset)
 
         # Evaluate model on test data
         _, all_preds, all_labels = self.trainer.eval(self.test_data.loader)
 
         if len(all_preds.shape) > 1:
-            all_preds = torch.squeeze(all_preds, 1)
+            all_preds = np.squeeze(all_preds, 1)
 
         return self.trainer, all_preds, all_labels
 
@@ -355,8 +378,8 @@ class IncrementalStrategy(ConsecutiveStrategy):
         all_games = self.sql_handler.query_games(self.start_date, self.end_date)
         self.all_zdata = ZamboniData(all_games)
 
-        all_labels = torch.tensor([], dtype=torch.float32)
-        all_preds = torch.tensor([], dtype=torch.float32)
+        all_labels = np.array([], dtype=np.float32)
+        all_preds = np.array([], dtype=np.float32)
         # Start incremental  training and predicting
         while current_date <= self.end_date:
             yesterdays_date = current_date - self.day_delta
@@ -394,8 +417,8 @@ class IncrementalStrategy(ConsecutiveStrategy):
                     f"Today's predictions: {todays_preds}, labels: {todays_labels}"
                 )
 
-                all_labels = torch.cat([all_labels, todays_labels])
-                all_preds = torch.cat([all_preds, todays_preds])
+                all_labels = np.concatenate([all_labels, todays_labels])
+                all_preds = np.concatenate([all_preds, todays_preds])
 
             yesterdays_zdata = todays_zdata
             yesterdays_date = current_date
@@ -403,7 +426,7 @@ class IncrementalStrategy(ConsecutiveStrategy):
             current_date += self.day_delta
 
         if len(all_preds.shape) > 1:
-            all_preds = torch.squeeze(all_preds, 1)
+            all_preds = np.squeeze(all_preds, 1)
 
         return self.trainer, all_preds, all_labels
 
@@ -425,8 +448,8 @@ class FullTrainStrategy(ConsecutiveStrategy):
         first_date, last_date = self.prediction_date_bounds(self.prediction_data.data)
         current_date = copy.deepcopy(first_date)
 
-        all_labels = torch.tensor([], dtype=torch.float32)
-        all_preds = torch.tensor([], dtype=torch.float32)
+        all_labels = np.array([], dtype=np.float32)
+        all_preds = np.array([], dtype=np.float32)
         # Start training and predicting
         while current_date <= last_date:
             previous_date = current_date - self.day_delta
@@ -449,13 +472,13 @@ class FullTrainStrategy(ConsecutiveStrategy):
             logger.debug(
                 f"Today's predictions: {todays_preds}, labels: {todays_labels}"
             )
-            all_labels = torch.cat([all_labels, todays_labels])
-            all_preds = torch.cat([all_preds, todays_preds])
+            all_labels = np.concatenate([all_labels, todays_labels])
+            all_preds = np.concatenate([all_preds, todays_preds])
 
             self.current_date += self.day_delta
 
         if len(all_preds.shape) > 1:
-            all_preds = torch.squeeze(all_preds, 1)
+            all_preds = np.squeeze(all_preds, 1)
 
         return self.trainer, all_preds, all_labels
 

@@ -1,7 +1,6 @@
 import logging
 from zamboni.api_download import main as download_main
 from zamboni import SQLHandler, DBConnector, TableCreator
-from zamboni.predicter_service import PredicterService
 from zamboni.data_management import ZamboniData
 from zamboni.sport import TeamService
 
@@ -15,6 +14,7 @@ loglevels = {
 
 
 def run(
+    db_uri,
     download=True,
     create_tables=True,
     force_recreate_tables=False,
@@ -28,39 +28,24 @@ def run(
     logging.basicConfig(level=loglevel)
     logger = logging.getLogger(__name__)
 
+    logger.info(f"DB URI: {db_uri}")
+
     if download:
         download_main()
 
-    db_connector = DBConnector()
-    db_con = db_connector.connect_db()
-    sql_handler = SQLHandler(db_con=db_con)
+    db_connector = DBConnector(db_uri)
+    engine = db_connector.connect_db()
+    sql_handler = SQLHandler(engine=engine)
 
     if create_tables:
-        table_creator = TableCreator(db_con)
-        table_creator.create_table("teams", recreate=force_recreate_tables)
-        table_creator.create_table("games", recreate=force_recreate_tables)
-        table_creator.create_table("gamesLastExport", recreate=force_recreate_tables)
-        table_creator.create_table("lastTraining", recreate=force_recreate_tables)
-        table_creator.create_table("predicterRegister", recreate=force_recreate_tables)
-        table_creator.create_table("gamePredictions", recreate=force_recreate_tables)
-        table_creator.create_table(
-            "games_history", is_view=True, recreate=force_recreate_tables
-        )
-        table_creator.create_table(
-            "games_per_team", is_view=True, recreate=force_recreate_tables
-        )
-        table_creator.create_table(
-            "games_prev_same_opp", is_view=True, recreate=force_recreate_tables
-        )
-        table_creator.create_table(
-            "games_with_previous", is_view=True, recreate=force_recreate_tables
-        )
-        # table_creator.create_table('rosterEntries')
+        table_creator = TableCreator(engine)
+        table_creator.create_tables(overwrite=force_recreate_tables)
 
     if load_db or report:
-        team_service = TeamService(db_con)
+        team_service = TeamService(engine)
 
     if load_db:
+        sql_handler.load_seasons()
         sql_handler.load_teams()
         team_service.build_abbrev_id_dicts()
         sql_handler.load_games_to_db()
@@ -68,8 +53,8 @@ def run(
         # sql_handler.load_roster_entries()
 
     if report or train:
-        predicters_service = PredicterService(sql_handler=sql_handler)
-        predicters = predicters_service.get_predicters()
+        # predicters_service = PredicterService(sql_handler=sql_handler)
+        predicters = sql_handler.get_predicters()
 
     if train:
         for predicter in predicters:
