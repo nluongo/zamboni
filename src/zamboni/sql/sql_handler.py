@@ -157,6 +157,9 @@ class SQLHandler:
         self.ensure_team(home_abbrev)
         self.ensure_team(away_abbrev)
 
+        outcome = getattr(game, "outcome")
+        in_ot = getattr(game, "in_ot")
+
         with self.engine.begin() as connection:
             season_id = (
                 select(Seasons.id)
@@ -174,6 +177,13 @@ class SQLHandler:
                 .scalar_subquery()
             )
 
+            home_points_awarded = (
+                (2 if outcome == 1 else (1 if in_ot else 0)) if outcome is not None else None
+            )
+            away_points_awarded = (
+                (2 if outcome == 0 else (1 if in_ot else 0)) if outcome is not None else None
+            )
+
             logger.debug(f"About to insert game {game}")
             stmt = insert(Games).values(
                 apiID=game.api_id,
@@ -188,8 +198,10 @@ class SQLHandler:
                 awayTeamGoals=getattr(game, "away_team_goals"),
                 gameTypeID=getattr(game, "game_type"),
                 lastPeriodTypeID=getattr(game, "last_period_type"),
-                outcome=getattr(game, "outcome"),
-                inOT=getattr(game, "in_ot"),
+                outcome=outcome,
+                inOT=in_ot,
+                homeTeamPointsAwarded=home_points_awarded,
+                awayTeamPointsAwarded=away_points_awarded,
                 recordCreated=today_date,
             )
             logging.debug(f"Inserting game: {repr(game)}")
@@ -233,8 +245,21 @@ class SQLHandler:
                         logger.debug(
                             f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                         )
+
         txt_path = f"{self.txt_dir}/games_today.txt"
-        # with open(txt_path, "r") as f, self.engine.connect() as connection:
+        with open(txt_path, "r") as f:
+            for line in f.readlines():
+                game = Game.from_csv_line(line)
+                exists_out = self.check_game_exists(game)
+                if not exists_out:
+                    self.insert_game(game)
+                else:
+                    api_id, outcome = exists_out
+                    logger.debug(
+                        f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
+                    )
+
+        txt_path = f"{self.txt_dir}/games_all.txt"
         with open(txt_path, "r") as f:
             for line in f.readlines():
                 game = Game.from_csv_line(line)

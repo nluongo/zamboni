@@ -67,9 +67,8 @@ def write_game_data(f, game, completed=True):
         logger.warning(f"Error extracting game data: {e}")
         return
 
-    f.write(
-        f"{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_local.date()}, {day_of_yr}, {year}, {datetime_local.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n"
-    )
+    game_string = f"{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_local.date()}, {day_of_yr}, {year}, {datetime_local.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n"
+    f.write(game_string)
 
 
 def write_game_data_all(f, game, first_line=False):
@@ -118,7 +117,8 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
     """
     caller = APICaller()
 
-    sched_date = date(start_year, 7, 1)
+    # Date chosen to capture preseason
+    start_date, sched_date = date(start_year, 9, 1), date(start_year, 9, 1) 
     day_delta = timedelta(days=1)
 
     # Download up to previous day and load to main file
@@ -176,6 +176,43 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
                 continue
             for game in day.games:
                 write_game_data(f, game, completed=False)
+
+    # Download full schedule through the end of latest season
+    current_year = today_date.year
+    if today_date > date(current_year, 7, 1):
+        end_date = date(current_year + 1, 7, 1)
+    else:
+        end_date = date(current_year, 7, 1)
+    sched_date = start_date
+
+    with open("data/games_all.txt", "a+") as f:
+        f.seek(0)
+        lines = f.readlines()
+        first_line = len(lines) == 0
+
+        # Start at date of latest game in file
+        if len(lines) > 0:
+            for line in lines:
+                pass
+            last_line = line
+            game_date = last_line.split(",")[6].strip()
+            last_date = datetime.fromisoformat(game_date).date()
+            sched_date = last_date + day_delta
+            logger.info(f"Starting download at date {sched_date}")
+        else:
+            logger.info("No games downloaded, starting at the beginning..")
+
+        while sched_date < end_date:
+            response = query_date_games(caller, sched_date)
+            if not response:
+                logger.info(f"No games found for date {today_date}")
+                return
+
+            for day in response.gameWeek:
+                for game in day.games:
+                    write_game_data(f, game, completed=False)
+
+            sched_date += day_delta
 
 
 def download_players(out_path="data/players.txt"):

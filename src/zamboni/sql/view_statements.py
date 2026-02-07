@@ -11,7 +11,9 @@ create_stmt_suffixes["games_per_team"] = """
         CASE outcome WHEN 1 THEN 1 ELSE 0 END AS won,
         CASE WHEN "lastPeriodTypeID" != 'REG' THEN 1 ELSE 0 END AS "inOT",
         "homeTeamGoals" AS goals,
-        "awayTeamGoals" AS "oppGoals"
+        "homeTeamPointsAwarded" AS pointsAwarded,
+        "awayTeamGoals" AS "oppGoals",
+        "awayTeamPointsAwarded" AS "oppPointsAwarded"
     FROM games
     UNION ALL
     SELECT
@@ -21,7 +23,9 @@ create_stmt_suffixes["games_per_team"] = """
         CASE outcome WHEN 0 THEN 1 ELSE 0 END AS won,
         CASE WHEN "lastPeriodTypeID" != 'REG' THEN 1 ELSE 0 END AS "inOT",
         "awayTeamGoals" AS goals,
-        "homeTeamGoals" AS "oppGoals"
+        "awayTeamPointsAwarded" AS pointsAwarded,
+        "homeTeamGoals" AS "oppGoals",
+        "homeTeamPointsAwarded" AS oppPointsAwarded
     FROM games
     """
 
@@ -42,7 +46,8 @@ create_stmt_suffixes["games_with_previous"] = """
         other_games_per_team."won" AS "prevWon", 
         other_games_per_team."inOT" AS "prevInOT", 
         other_games_per_team."goals" AS "prevGoals",
-        other_games_per_team."oppGoals" AS "prevOppGoals"
+        other_games_per_team."oppGoals" AS "prevOppGoals",
+        other_games_per_team."pointsAwarded" AS "prevPointsAwarded"
     FROM games_per_team  
     INNER JOIN games 
         ON games_per_team."gameID" = games.id  
@@ -85,11 +90,13 @@ create_stmt_suffixes["games_history"] = """
     SELECT 
         "gameID",
         "teamID",
+        MAX("datePlayed") AS "datePlayed",
         {null_func}(SUM("prevWon"), 0) AS "prevWonNum",
         COUNT("prevWon") AS "prevNum",
         {null_func}(CAST(SUM("prevWon") AS REAL) / COUNT(*), 0) AS "prevWonPercentage",
         {null_func}(CAST(SUM("prevGoals") AS REAL) / COUNT(*), 0) AS "prevGoalsPerGame",
-        {null_func}(CAST(SUM("prevOppGoals") AS REAL) / COUNT(*), 0) AS "prevOppGoalsPerGame"
+        {null_func}(CAST(SUM("prevOppGoals") AS REAL) / COUNT(*), 0) AS "prevOppGoalsPerGame",
+        {null_func}(CAST(SUM("prevPointsAwarded") AS INTEGER), 0) AS "pointsToDate"
     FROM games_with_previous
     GROUP BY "gameID", "teamID"
     """

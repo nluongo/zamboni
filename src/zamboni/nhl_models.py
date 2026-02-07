@@ -68,8 +68,8 @@ class GameVenue(BaseModel):
 class PeriodDescriptor(BaseModel):
     """Period information."""
 
-    number: int
-    periodType: str
+    number: Optional[int] = None
+    periodType: Optional[str] = None
     maxRegulationPeriods: int
 
 
@@ -143,13 +143,14 @@ class Game(BaseModel):
             raise ValueError(f"Invalid season format: {v}")
         return v
 
-    @field_validator("gameType")
-    @classmethod
-    def validate_game_type(cls, v: int) -> int:
-        """Validate game type (1=preseason, 2=regular, 3=playoffs, 4=all-star, 9=Olympic, 12=international(?))."""
-        if v not in [1, 2, 3, 4, 9, 12]:
-            raise ValueError(f"Invalid game type: {v}")
-        return v
+    # Not using values of gameType for now so no need to validate
+    #@field_validator("gameType")
+    #@classmethod
+    #def validate_game_type(cls, v: int) -> int:
+    #    """Validate game type (1=preseason, 2=regular, 3=playoffs, 4=all-star, 9=Olympic, 12=international(?), 19=?)."""
+    #    if v not in [1, 2, 3, 4, 9, 12, 19]:
+    #        raise ValueError(f"Invalid game type: {v}")
+    #    return v
 
     @field_validator("gameState")
     @classmethod
@@ -196,7 +197,7 @@ class GameDay(BaseModel):
 class GameScheduleResponse(BaseModel):
     """Response from NHL schedule endpoint."""
 
-    nextStartDate: str
+    nextStartDate: Optional[str] = None
     previousStartDate: str
     gameWeek: List[GameDay]
 

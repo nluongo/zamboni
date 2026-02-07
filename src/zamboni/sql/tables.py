@@ -47,6 +47,8 @@ class Games(Base):
     lastPeriodTypeID: Mapped[str] = mapped_column(Text)
     outcome: Mapped[int] = mapped_column(Integer)
     inOT: Mapped[bool | None] = mapped_column(Boolean)
+    homeTeamPointsAwarded: Mapped[int | None] = mapped_column(Integer)
+    awayTeamPointsAwarded: Mapped[int | None] = mapped_column(Integer)
     recordCreated: Mapped[Date] = mapped_column(Date)
 
 

@@ -48,10 +48,12 @@ class APICaller:
             self.url = self.url_base + "schedule/{}"
         elif record_type == "roster":
             self.url = self.url_base + "roster/{}/{}{}"
+        elif record_type == "schedule":
+            self.url = self.url_base + "schedule-calendar/{}"
         else:
             print(f"ERROR: no endpoint associated with the record type {record_type}")
 
-    def query_url(self, record_ids, record_type=None):
+    def query_url(self, record_ids=[], record_type=None):
         """
         Return the URL that would be queried for the given record IDs.
 
