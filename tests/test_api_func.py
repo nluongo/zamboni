@@ -17,7 +17,7 @@ def test_url_base():
 def test_standings_model():
     caller = APICaller()
     caller.set_url_template("standings")
-    out = caller.query(record_ids=[20232024], record_type="standings")
+    out = caller.query(record_ids=["2024-02-07"], record_type="standings")
     assert isinstance(out, StandingsResponse)
 
 
@@ -42,5 +42,5 @@ def test_game_url():
 def test_roster_url():
     caller = APICaller()
     caller.set_url_template("roster")
-    out = caller.query(record_ids=[8478402, 20232024, "A"], record_type="roster")
+    out = caller.query(record_ids=["EDM", 2023, 2024], record_type="roster")
     assert isinstance(out, RosterResponse)

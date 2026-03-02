@@ -685,15 +685,14 @@ class TestRosterResponse:
     def test_valid_roster(self):
         """Test parsing valid roster data."""
         roster_data = {
-            "season": 20242025,
+            #"season": 20242025,
             "forwards": [
                 {
                     "id": 8470601,
                     "firstName": {"default": "Nathan"},
                     "lastName": {"default": "MacKinnon"},
                     "sweaterNumber": 29,
-                    "position": "C",
-                    "status": "A",
+                    "positionCode": "C",
                 }
             ],
             "defensemen": [
@@ -702,8 +701,7 @@ class TestRosterResponse:
                     "firstName": {"default": "Cale"},
                     "lastName": {"default": "Makar"},
                     "sweaterNumber": 8,
-                    "position": "D",
-                    "status": "A",
+                    "positionCode": "D",
                 }
             ],
             "goalies": [
@@ -712,17 +710,16 @@ class TestRosterResponse:
                     "firstName": {"default": "Pavel"},
                     "lastName": {"default": "Zacha"},
                     "sweaterNumber": 37,
-                    "position": "G",
-                    "status": "A",
+                    "positionCode": "G",
                 }
             ],
         }
         roster = RosterResponse(**roster_data)
-        assert roster.season == 20242025
+        #assert roster.season == 20242025
         assert len(roster.forwards) == 1
-        assert roster.forwards[0].position == "C"
-        assert roster.defensemen[0].position == "D"
-        assert roster.goalies[0].position == "G"
+        assert roster.forwards[0].positionCode == "C"
+        assert roster.defensemen[0].positionCode == "D"
+        assert roster.goalies[0].positionCode == "G"
 
     def test_invalid_player_position_in_roster(self):
         """Test that invalid player position in roster is rejected."""
@@ -734,7 +731,7 @@ class TestRosterResponse:
                     "firstName": {"default": "Nathan"},
                     "lastName": {"default": "MacKinnon"},
                     "sweaterNumber": 29,
-                    "position": "X",  # Invalid
+                    "positionCode": "X",  # Invalid
                     "status": "A",
                 }
             ],

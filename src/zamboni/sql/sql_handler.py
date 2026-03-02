@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, date
 import logging
 import pandas as pd
 from sqlalchemy import select, insert, update, text, func
@@ -13,6 +13,7 @@ from .tables import (
     GamePredictions,
     LastTraining,
     Seasons,
+    GamesHistoryView,
 )
 from .sql_helpers import upsert
 from zamboni.db_con import DBConnector
@@ -55,21 +56,21 @@ class SQLHandler:
             out = connection.execute(stmt, params or {})
         return out
 
-    def get_team_id(self, id_dict, team_abbrev):
+    def get_team_id(self, team_abbrev):
         """
         Get team ID from db if it exists and store in dictionary if not
         """
-        if id_dict[team_abbrev] == "Undefined":
+        if self.team_id_dict[team_abbrev] == "Undefined":
             stmt = select(Teams.id).where(Teams.nameAbbrev == team_abbrev)
             with self.engine.connect() as connection:
                 res = connection.execute(stmt).first()
             if res:
                 team_id = res[0]
-                id_dict[team_abbrev] = team_id
+                self.team_id_dict[team_abbrev] = team_id
             else:
                 team_id = -1
         else:
-            team_id = id_dict[team_abbrev]
+            team_id = self.team_id_dict[team_abbrev]
         return team_id
 
     def check_game_exists(self, game):
@@ -147,7 +148,8 @@ class SQLHandler:
         date_played = date_str_to_py(date_played)
 
         time_played = getattr(game, "time_played")
-        time_played = datetime.strptime(time_played, "%H:%M:%S").time()
+        if time_played:
+            time_played = datetime.strptime(time_played, "%H:%M:%S").time()
 
         season_api_id = getattr(game, "season_id")
         home_abbrev = getattr(game, "home_abbrev")
@@ -379,6 +381,16 @@ class SQLHandler:
                         )
                     )
 
+    def load_predicters(self, predicters):
+        """
+        Load predicters from config.yaml to db
+        """
+        for predicter in predicters:
+            name = predicter["name"]
+            class_name = predicter["class_name"]
+            active = predicter.get("active", True)
+            self.add_predicter_to_register(name, class_name, active=active)
+
     def query(self, sql, params=None):
         """
         Query the database with the given SQL statement or selectable.
@@ -398,8 +410,7 @@ class SQLHandler:
         """
         select_stmt = games_select(start_date, end_date)
         logger.debug(select_stmt)
-        with self.engine.connect() as connection:
-            games = connection.execute(select_stmt).fetchall()
+        games = self.query(select_stmt)
         return games
 
     def query_games_with_predictions(self, start_date, end_date=None):
@@ -427,7 +438,7 @@ class SQLHandler:
         """
         Log a game prediction to the database
         """
-        prediction_bin = int(prediction > 0.5)
+        prediction_bin = int(prediction >= 0.5)
         values = {
             "gameID": game_id,
             "predicterID": predicter_id,
@@ -439,19 +450,22 @@ class SQLHandler:
             self.engine, GamePredictions.__table__, values, ["gameID", "predicterID"]
         )
 
+    def record_game_predictions(self, predicter_id, games: pd.DataFrame) -> None:
+        games.apply(lambda row: self.record_game_prediction(row['id'], predicter_id, row['preds']), axis=1)
+
     def add_predicter_to_register(
-        self, name, predicter_class_name, path="", trainable=False, active=True
+        self, name, predicter_class_name, path="", active=True
     ):
         """
         Register a new predicter in the predicterRegister table
         """
         values = {
             "predicterName": name,
-            "predicterType": predicter_class_name,
+            "predicterClass": predicter_class_name,
             "predicterPath": path,
-            "trainable": int(trainable),
             "active": int(active),
         }
+        logger.debug(f"Adding/updating predicter in register: {name}, class: {predicter_class_name}, active: {active}")
         upsert(self.engine, PredicterRegister.__table__, values, ["predicterName"])
 
     def predicter_id_from_name(self, predicter_name):
@@ -547,12 +561,38 @@ class SQLHandler:
         stmt = select(
             PredicterRegister.id,
             PredicterRegister.predicterName,
-            PredicterRegister.predicterType,
+            PredicterRegister.predicterClass,
             PredicterRegister.predicterPath,
-            PredicterRegister.trainable,
             PredicterRegister.active,
         )
         with self.engine.connect() as connection:
             rows = connection.execute(stmt).fetchall()
-        out = [list(row) for row in rows]
-        return out
+        return rows
+
+    def get_predicter_by_name(self, name):
+        """
+        Get the predicter with given name from the db
+        """
+        stmt = select(
+            PredicterRegister.id,
+            PredicterRegister.predicterName,
+            PredicterRegister.predicterClass,
+            PredicterRegister.predicterPath,
+            PredicterRegister.active,
+        ).where(
+            PredicterRegister.predicterName == name
+        )
+        with self.engine.connect() as connection:
+            row = connection.execute(stmt).first()
+        return row
+
+    def wins_to_date(self, team_id: int, date: date) -> int:
+        stmt = select(
+            GamesHistoryView.prevWonNum
+        ).where(
+            team_id == GamesHistoryView.teamID,
+            date == GamesHistoryView.datePlayed
+        )
+        with self.engine.connect() as connection:
+            wins = connection.execute(stmt).first()
+        return wins

@@ -37,19 +37,19 @@ class Games(Base):
     seasonID: Mapped[int] = mapped_column(ForeignKey("seasons.id"), nullable=False)
     homeTeamID: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
     awayTeamID: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
-    datePlayed: Mapped[Date] = mapped_column(Date)
-    dayOfYrPlayed: Mapped[int] = mapped_column(Integer)
-    yrPlayed: Mapped[int] = mapped_column(Integer)
-    timePlayed: Mapped[Time] = mapped_column(Time)
+    datePlayed: Mapped[Date | None] = mapped_column(Date)
+    dayOfYrPlayed: Mapped[int | None] = mapped_column(Integer)
+    yrPlayed: Mapped[int | None] = mapped_column(Integer)
+    timePlayed: Mapped[Time | None] = mapped_column(Time)
     homeTeamGoals: Mapped[int | None] = mapped_column(Integer)
     awayTeamGoals: Mapped[int | None] = mapped_column(Integer)
-    gameTypeID: Mapped[int] = mapped_column(Integer)
-    lastPeriodTypeID: Mapped[str] = mapped_column(Text)
-    outcome: Mapped[int] = mapped_column(Integer)
+    gameTypeID: Mapped[int | None] = mapped_column(Integer)
+    lastPeriodTypeID: Mapped[str | None] = mapped_column(Text)
+    outcome: Mapped[int | None] = mapped_column(Integer)
     inOT: Mapped[bool | None] = mapped_column(Boolean)
     homeTeamPointsAwarded: Mapped[int | None] = mapped_column(Integer)
     awayTeamPointsAwarded: Mapped[int | None] = mapped_column(Integer)
-    recordCreated: Mapped[Date] = mapped_column(Date)
+    recordCreated: Mapped[Date | None] = mapped_column(Date)
 
 
 class Seasons(Base):
@@ -83,7 +83,7 @@ class LastTraining(Base):
     __tablename__ = "lastTraining"
 
     predicterID: Mapped[int] = mapped_column(Integer, primary_key=True)
-    lastTrainingDate: Mapped[Date] = mapped_column(Date)
+    lastTrainingDate: Mapped[Date | None] = mapped_column(Date)
 
 
 class PredicterRegister(Base):
@@ -91,9 +91,8 @@ class PredicterRegister(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     predicterName: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    predicterType: Mapped[str] = mapped_column(Text)
+    predicterClass: Mapped[str] = mapped_column(Text)
     predicterPath: Mapped[str] = mapped_column(Text)
-    trainable: Mapped[bool] = mapped_column(Boolean)
     active: Mapped[bool] = mapped_column(Boolean)
 
 
@@ -152,17 +151,13 @@ class GamesHistoryView(Base):
 
     gameID: Mapped[int] = mapped_column(Integer, primary_key=True)
     teamID: Mapped[int] = mapped_column(Integer)
-    oppTeamID: Mapped[int] = mapped_column(Integer)
-    gamesPlayed: Mapped[int] = mapped_column(Integer)
-    wins: Mapped[int] = mapped_column(Integer)
-    otLosses: Mapped[int] = mapped_column(Integer)
-    losses: Mapped[int] = mapped_column(Integer)
-    goalsFor: Mapped[int] = mapped_column(Integer)
-    goalsAgainst: Mapped[int] = mapped_column(Integer)
-    avgGoalsFor: Mapped[float] = mapped_column(Float)
-    avgGoalsAgainst: Mapped[float] = mapped_column(Float)
-    winPct: Mapped[float] = mapped_column(Float)
-    pointsPct: Mapped[float] = mapped_column(Float)
+    datePlayed: Mapped[Date] = mapped_column(Date)
+    prevWonNum: Mapped[int] = mapped_column(Integer)
+    prevNum: Mapped[int] = mapped_column(Integer)
+    prevWonPercentage: Mapped[float] = mapped_column(Float)
+    prevGoalsPerGame: Mapped[float] = mapped_column(Float)
+    prevOppGoalsPerGame: Mapped[float] = mapped_column(Float)
+    pointsToDate: Mapped[int] = mapped_column(Integer)
 
 
 table_class_names = [

@@ -137,7 +137,7 @@ class Game:
     @property
     def completed(self):
         """Check if game is completed"""
-        return 1 if self.home_team_goals and self.away_team_goals else 0
+        return 1 if self.home_team_goals is not None and self.away_team_goals is not None else 0
 
     @property
     def outcome(self):

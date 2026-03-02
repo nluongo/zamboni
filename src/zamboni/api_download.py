@@ -2,6 +2,7 @@ from zamboni import APICaller
 from zamboni.api_caller import NHLAPIValidationError
 from zamboni.utils import zero_pad
 from datetime import datetime, date, timedelta
+import copy
 import logging
 import os
 import json
@@ -58,8 +59,8 @@ def write_game_data(f, game, completed=True):
         away_goals = getattr(game.awayTeam, "score", None)
         game_outcome = getattr(game, "gameOutcome", None)
         if game_outcome:
-            last_period_type = getattr(game, "lastPeriodType", None)
-        if not (home_goals and away_goals and game_outcome and last_period_type):
+            last_period_type = getattr(game.gameOutcome, "lastPeriodType", None)
+        if home_goals is None or away_goals is None or game_outcome is None or last_period_type is None:
             home_goals = ""
             away_goals = ""
             last_period_type = ""
@@ -68,6 +69,7 @@ def write_game_data(f, game, completed=True):
         return
 
     game_string = f"{api_id}, {season_id}, {home_id}, {home_abbrev}, {away_id}, {away_abbrev}, {datetime_local.date()}, {day_of_yr}, {year}, {datetime_local.time()}, {home_goals}, {away_goals}, {type_id}, {last_period_type}\n"
+    logger.debug(f"About to write game string: {game_string}")
     f.write(game_string)
 
 
@@ -107,18 +109,18 @@ def write_game_data_all(f, game, first_line=False):
         logger.error(f"Error flattening or writing game data: {e}")
 
 
-def download_games(start_year=2024, out_path="data/games.txt", all=False):
+def download_games(start_date, out_path="data/games.txt", write_all_fields=False):
     """
     Download NHL game data from API and write to file.
 
-    :param start_year: Year to start downloading from
+    :param start_date: Date to start downloading from
     :param out_path: Path to output file
     :param all: If True, write all fields; if False, write subset
     """
     caller = APICaller()
 
     # Date chosen to capture preseason
-    start_date, sched_date = date(start_year, 9, 1), date(start_year, 9, 1) 
+    sched_date = copy.deepcopy(start_date)
     day_delta = timedelta(days=1)
 
     # Download up to previous day and load to main file
@@ -146,13 +148,15 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
                 continue
 
             for day in response.gameWeek:
+                logger.debug(f"Day in response: {day}")
                 if not day.games:
                     logger.info(f"No games found for date {day.date}")
                     sched_date += day_delta
                     continue
 
                 for game in day.games:
-                    if all:
+                    logger.debug(f"Game in response: {game}")
+                    if write_all_fields:
                         # Convert Pydantic model to dict for flattening
                         game_dict = game.model_dump()
                         write_game_data_all(f, game_dict, first_line)
@@ -179,10 +183,10 @@ def download_games(start_year=2024, out_path="data/games.txt", all=False):
 
     # Download full schedule through the end of latest season
     current_year = today_date.year
-    if today_date > date(current_year, 7, 1):
-        end_date = date(current_year + 1, 7, 1)
+    if today_date > date(current_year, 5, 1):
+        end_date = date(current_year + 1, 5, 1)
     else:
-        end_date = date(current_year, 7, 1)
+        end_date = date(current_year, 5, 1)
     sched_date = start_date
 
     with open("data/games_all.txt", "a+") as f:
@@ -223,13 +227,10 @@ def download_players(out_path="data/players.txt"):
     # Less than 2500 players in the league
     # end_id = 8477604
     end_id = 8500000
-    step = 1
     with open("data/players.txt", "w") as f:
         while api_id < end_id:
             player = caller.query([api_id], "player", throw_error=False)
             if not player:
-                if api_id % step == 0:
-                    print(api_id)
                 api_id += 1
                 continue
             first_name = player["firstName"]["default"]
@@ -354,13 +355,13 @@ def download_seasons(start_year):
             i += 1
 
 
-def main(start_year=2023):
+def main(start_date):
     download_dir = "data"
     if not os.path.isdir(download_dir):
         os.mkdir(download_dir)
-    download_seasons(start_year=start_year)
-    download_teams(start_year=start_year)
-    download_games(start_year=start_year)
+    download_seasons(start_year=start_date.year)
+    download_teams(start_year=start_date.year)
+    download_games(start_date=start_date)
     # download_players()
     # download_rosters(start_year=start_year)
 

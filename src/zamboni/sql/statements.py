@@ -42,7 +42,7 @@
 # }
 
 # Provide a callable factory to construct a selectable for games with predictions
-from sqlalchemy import select
+from sqlalchemy import select, case
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import and_, func
 from .tables import (
@@ -75,7 +75,7 @@ def games_select(start_date, end_date):
             (agh.prevNum + 1).label("awayGameOfSeason"),
             func.coalesce(gpso.prevOutcome, 0).label("prevMatchupOutcome"),
             func.coalesce(gpso.prevInOT, 0).label("prevMatchupInOT"),
-            (func.case([(gpso.prevOutcome.is_(None), 0)], else_=1)).label(
+            (case((gpso.prevOutcome.is_(None), 0), else_=1)).label(
                 "hasPreviousMatchup"
             ),
             Games.outcome,

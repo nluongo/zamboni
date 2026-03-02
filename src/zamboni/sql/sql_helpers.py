@@ -1,5 +1,7 @@
 from datetime import date
 from sqlalchemy import insert, update, and_, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from zamboni.db_con import DBConnector
 
@@ -28,8 +30,9 @@ def upsert(engine, table, values, primary_key_columns):
     pk_names = [getattr(col, "name", col) for col in primary_key_columns]
 
     if dialect in ("postgresql", "sqlite"):
+        insert_func = pg_insert if dialect == "postgresql" else sqlite_insert
         stmt = (
-            insert(table)
+            insert_func(table)
             .values(**values)
             .on_conflict_do_update(
                 index_elements=pk_names,

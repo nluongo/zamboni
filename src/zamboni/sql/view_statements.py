@@ -58,6 +58,7 @@ create_stmt_suffixes["games_with_previous"] = """
         OR games_per_team."teamID" = other_games."awayTeamID")  
         AND (games."datePlayed" > other_games."datePlayed"
         AND games."seasonID" = other_games."seasonID")
+        AND games."gameTypeID" = other_games."gameTypeID"
     LEFT OUTER JOIN games_per_team other_games_per_team 
         ON other_games.id = other_games_per_team."gameID"  
         AND games_per_team."teamID" = other_games_per_team."teamID"  

@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import yaml
 
 from zamboni.core import run
@@ -14,6 +15,16 @@ def cli():
 
     # Database URI
     parser.add_argument("--db-uri", help="URI path to database")
+
+    # Starting date
+    parser.add_argument(
+        "--earliest-date", 
+        type=datetime.date.fromisoformat,
+        help="Earliest date to download from API - YYYY:MM:DD"
+    )
+
+    # List of predicters
+    parser.add_argument("--predicters", type=list, help="List of predicters to use")
 
     # Flag to control downloading NHL data.
     parser.add_argument("--download", action="store_true", help="Download NHL data")
@@ -102,6 +113,8 @@ def cli():
     config.update(args)
 
     db_uri = config["db_uri"]
+    earliest_date = config["earliest_date"]
+    predicters = config.get("predicters", [])
     download = config["download"]
     create_tables = config["create_tables"]
     load_db = config["load_db"]
@@ -113,6 +126,8 @@ def cli():
 
     run(
         db_uri=db_uri,
+        earliest_date=earliest_date,
+        predicters=predicters,
         download=download,
         create_tables=create_tables,
         force_recreate_tables=force_recreate_tables,

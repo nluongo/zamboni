@@ -98,6 +98,7 @@ class APICaller:
             api_out = requests.get(url)
             api_out.raise_for_status()  # Raise an HTTPError for bad responses
             json_data = api_out.json()
+            logger.debug(f"Received JSON from API call: {json_data}")
         except requests.exceptions.HTTPError as http_err:
             if throw_error:
                 raise ValueError(f"HTTP error occurred: {http_err}") from http_err

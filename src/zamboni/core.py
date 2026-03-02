@@ -1,6 +1,8 @@
+import datetime
 import logging
 from zamboni.api_download import main as download_main
 from zamboni import SQLHandler, DBConnector, TableCreator
+from zamboni.predicters.predicter import initialize_predicter
 from zamboni.data_management import ZamboniData
 from zamboni.sport import TeamService
 
@@ -15,6 +17,8 @@ loglevels = {
 
 def run(
     db_uri,
+    predicters,
+    earliest_date = datetime.date.fromisoformat("2025-09-01"),
     download=True,
     create_tables=True,
     force_recreate_tables=False,
@@ -31,7 +35,7 @@ def run(
     logger.info(f"DB URI: {db_uri}")
 
     if download:
-        download_main()
+        download_main(start_date=earliest_date)
 
     db_connector = DBConnector(db_uri)
     engine = db_connector.connect_db()
@@ -49,18 +53,27 @@ def run(
         sql_handler.load_teams()
         team_service.build_abbrev_id_dicts()
         sql_handler.load_games_to_db()
+        sql_handler.load_predicters(predicters)
         # sql_handler.load_players()
         # sql_handler.load_roster_entries()
 
     if report or train:
         # predicters_service = PredicterService(sql_handler=sql_handler)
-        predicters = sql_handler.get_predicters()
+        predicters_from_db = sql_handler.get_predicters()
 
     if train:
-        for predicter in predicters:
-            if not predicter.active:
+        for predicter_from_db in predicters_from_db:
+            if not predicter_from_db.active:
                 continue
-            logger.info(f"Initializing predicter: {predicter.name}")
+            logger.info(f"Initializing predicter: {predicter_from_db.predicterName}")
+            predicter = initialize_predicter(
+                id=predicter_from_db.id,
+                name=predicter_from_db.predicterName,
+                class_name=predicter_from_db.predicterClass,
+                model_path=predicter_from_db.predicterPath,
+                active=predicter_from_db.active,
+                sql_handler=sql_handler
+            )
             if predicter.trainable:
                 last_training_date = sql_handler.get_last_training_date(predicter.id)
                 logger.info(
@@ -75,7 +88,9 @@ def run(
             if len(new_games) == 0:
                 continue
             games_data = ZamboniData(new_games)
-            predicter.update(games_data)
+            # Add preds column with predictions
+            predicter.update(games_data.data)
+            sql_handler.record_game_predictions(predicter.id, games_data.data)
 
         # if report:
         #    todays_games = sql_handler.query_games(start_date=today_date_str())

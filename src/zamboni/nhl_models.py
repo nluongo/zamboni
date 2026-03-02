@@ -37,14 +37,14 @@ class TeamDetails(BaseModel):
             raise ValueError("Score cannot be negative")
         return v
 
-    # @field_validator("id")
-    # @classmethod
-    # def team_id_valid(cls, v: int) -> int:
-    #    """Validate that team ID is in a reasonable range."""
-    #    # NHL team IDs typically range from 1 to 30+
-    #    if v < 1 or v > 100:
-    #        raise ValueError("Team ID out of valid range")
-    #    return v
+    @field_validator("id")
+    @classmethod
+    def team_id_valid(cls, v: int) -> int:
+       """Validate that team ID is in a reasonable range."""
+       # NHL team IDs typically range from 1 to 30+
+       if v < 1 or v > 100:
+           raise ValueError("Team ID out of valid range")
+       return v
 
 
 class LocalizedString(BaseModel):
@@ -144,13 +144,13 @@ class Game(BaseModel):
         return v
 
     # Not using values of gameType for now so no need to validate
-    #@field_validator("gameType")
-    #@classmethod
-    #def validate_game_type(cls, v: int) -> int:
-    #    """Validate game type (1=preseason, 2=regular, 3=playoffs, 4=all-star, 9=Olympic, 12=international(?), 19=?)."""
-    #    if v not in [1, 2, 3, 4, 9, 12, 19]:
-    #        raise ValueError(f"Invalid game type: {v}")
-    #    return v
+    @field_validator("gameType")
+    @classmethod
+    def validate_game_type(cls, v: int) -> int:
+        """Validate game type (1=preseason, 2=regular, 3=playoffs, 4=all-star, 9=Olympic, 12=international(?), 19=?)."""
+        if v not in [1, 2, 3, 4, 9, 12, 19]:
+            raise ValueError(f"Invalid game type: {v}")
+        return v
 
     @field_validator("gameState")
     @classmethod
@@ -413,8 +413,7 @@ class RosterPlayer(BaseModel):
     firstName: LocalizedString
     lastName: LocalizedString
     sweaterNumber: int
-    position: str
-    status: str
+    positionCode: str
 
     @field_validator("sweaterNumber")
     @classmethod
@@ -424,7 +423,7 @@ class RosterPlayer(BaseModel):
             raise ValueError(f"Invalid sweater number: {v}")
         return v
 
-    @field_validator("position")
+    @field_validator("positionCode")
     @classmethod
     def validate_position(cls, v: str) -> str:
         """Validate position is a known NHL position."""
@@ -437,7 +436,6 @@ class RosterPlayer(BaseModel):
 class RosterResponse(BaseModel):
     """Response from NHL roster endpoint."""
 
-    season: int
     forwards: List[RosterPlayer]
     defensemen: List[RosterPlayer]
     goalies: List[RosterPlayer]

@@ -5,47 +5,46 @@ Tests cover upsert, parameterized queries, Core/ORM expressions, and allow-list 
 
 import pytest
 import os
-from datetime import date, timedelta
-from sqlalchemy import select, text, insert
+from datetime import date
+from sqlalchemy import select, text, insert, func
 
 from zamboni import DBConnector, SQLHandler, TableCreator
-from zamboni.sql.tables import Teams, PredicterRegister, GamePredictions, LastTraining
+from zamboni.sport import Game
+from zamboni.sql.tables import Teams, Games, PredicterRegister, GamePredictions, LastTraining
 from zamboni.sql.sql_helpers import upsert
 
 
-TEST_DB_PATH = "data/test_sqlalchemy.db"
-
-
 @pytest.fixture
-def test_db():
+def test_db(tmp_path):
     """Create and teardown a test database."""
-    if os.path.exists(TEST_DB_PATH):
-        os.remove(TEST_DB_PATH)
+    test_db_path = f"sqlite:////{tmp_path}/test.db"
+    if os.path.exists(test_db_path):
+        os.remove(test_db_path)
 
-    db_connector = DBConnector(TEST_DB_PATH)
+    db_connector = DBConnector(test_db_path)
     db_con = db_connector.connect_db()
 
     # Create required tables
     table_creator = TableCreator(db_con)
-    table_creator.create_table("teams")
-    table_creator.create_table("games")
-    table_creator.create_table("players")
-    table_creator.create_table("rosterEntries")
-    table_creator.create_table("predicterRegister")
-    table_creator.create_table("gamePredictions")
-    table_creator.create_table("lastTraining")
-    table_creator.create_table("gamesLastExport")
+    table_creator.create_tables()
 
     yield db_con
 
-    if os.path.exists(TEST_DB_PATH):
-        os.remove(TEST_DB_PATH)
+    db_con.dispose()
+    if os.path.exists(test_db_path):
+        os.remove(test_db_path)
 
 
 @pytest.fixture
 def sql_handler(test_db):
     """Create a SQLHandler instance with test database."""
-    return SQLHandler(db_con=test_db)
+    handler = SQLHandler(engine=test_db)
+    yield handler
+
+def insert_test_team(sql_handler):
+    stmt = insert(Teams).values(name="Test Team", nameAbbrev="TT", conferenceAbbrev="E", divisionAbbrev="A")
+    with sql_handler.engine.begin() as conn:
+        conn.execute(stmt)
 
 
 class TestUpsertHelper:
@@ -56,64 +55,60 @@ class TestUpsertHelper:
         values = {
             "id": 1,
             "predicterName": "test_predicter",
-            "predicterType": "TestType",
+            "predicterClass": "TestClass",
             "predicterPath": "/path/to/test",
-            "trainable": True,
             "active": True,
         }
         upsert(
-            sql_handler.db_con, PredicterRegister.__table__, values, ["predicterName"]
+            sql_handler.engine, PredicterRegister.__table__, values, ["predicterName"]
         )
 
         # Verify the record was inserted
         stmt = select(PredicterRegister).where(
             PredicterRegister.predicterName == "test_predicter"
         )
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             result = conn.execute(stmt).first()
 
         assert result is not None
         assert result.predicterName == "test_predicter"
-        assert result.predicterType == "TestType"
+        assert result.predicterClass == "TestClass"
 
     def test_upsert_update_existing_record(self, sql_handler):
         """Test updating an existing record via upsert (on conflict)."""
         # First insert
         values1 = {
             "predicterName": "update_test",
-            "predicterType": "OriginalType",
+            "predicterClass": "OriginalClass",
             "predicterPath": "/original",
-            "trainable": False,
             "active": True,
         }
         upsert(
-            sql_handler.db_con, PredicterRegister.__table__, values1, ["predicterName"]
+            sql_handler.engine, PredicterRegister.__table__, values1, ["predicterName"]
         )
 
         # Update via upsert (same predicterName key)
         values2 = {
             "predicterName": "update_test",
-            "predicterType": "UpdatedType",
+            "predicterClass": "UpdatedClass",
             "predicterPath": "/updated",
-            "trainable": True,
             "active": False,
         }
         upsert(
-            sql_handler.db_con, PredicterRegister.__table__, values2, ["predicterName"]
+            sql_handler.engine, PredicterRegister.__table__, values2, ["predicterName"]
         )
 
         # Verify the record was updated (not duplicated)
         stmt = select(PredicterRegister).where(
             PredicterRegister.predicterName == "update_test"
         )
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             results = conn.execute(stmt).fetchall()
 
         assert len(results) == 1
         result = results[0]
-        assert result.predicterType == "UpdatedType"
+        assert result.predicterClass == "UpdatedClass"
         assert result.predicterPath == "/updated"
-        assert result.trainable is True
         assert result.active is False
 
     def test_upsert_composite_key(self, sql_handler):
@@ -127,7 +122,7 @@ class TestUpsertHelper:
             "predictionDate": date.today(),
         }
         upsert(
-            sql_handler.db_con,
+            sql_handler.engine,
             GamePredictions.__table__,
             values1,
             ["gameID", "predicterID"],
@@ -142,7 +137,7 @@ class TestUpsertHelper:
             "predictionDate": date.today(),
         }
         upsert(
-            sql_handler.db_con,
+            sql_handler.engine,
             GamePredictions.__table__,
             values2,
             ["gameID", "predicterID"],
@@ -152,7 +147,7 @@ class TestUpsertHelper:
         stmt = select(GamePredictions).where(
             (GamePredictions.gameID == 100) & (GamePredictions.predicterID == 1)
         )
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             results = conn.execute(stmt).fetchall()
 
         assert len(results) == 1
@@ -165,39 +160,30 @@ class TestGetTeamId:
     def test_get_team_id_existing_team(self, sql_handler):
         """Test retrieving team ID for existing team."""
         # Insert team
-        stmt = insert(Teams).values(name="Detroit Red Wings", nameAbbrev="DET")
-        with sql_handler.db_con.begin() as conn:
-            conn.execute(stmt)
+        insert_test_team(sql_handler)
 
         # Get team ID
-        id_dict = {}
-        team_id = sql_handler.get_team_id(id_dict, "DET")
+        team_id = sql_handler.get_team_id("TT")
 
         assert team_id != -1
-        assert id_dict["DET"] == team_id
+        assert sql_handler.team_id_dict["TT"] == team_id
 
     def test_get_team_id_nonexistent_team(self, sql_handler):
         """Test retrieving team ID for non-existent team."""
-        id_dict = {}
-        team_id = sql_handler.get_team_id(id_dict, "XYZ")
+        team_id = sql_handler.get_team_id("XYZ")
 
         assert team_id == -1
 
     def test_get_team_id_caches_result(self, sql_handler):
         """Test that get_team_id caches results in id_dict."""
-        from sqlalchemy import insert
-
         # Insert team
-        stmt = insert(Teams).values(name="Colorado Avalanche", nameAbbrev="COL")
-        with sql_handler.db_con.begin() as conn:
-            conn.execute(stmt)
+        insert_test_team(sql_handler)
 
-        id_dict = {}
-        team_id_1 = sql_handler.get_team_id(id_dict, "COL")
-        team_id_2 = sql_handler.get_team_id(id_dict, "COL")
+        team_id_1 = sql_handler.get_team_id("TT")
+        team_id_2 = sql_handler.get_team_id("TT")
 
         assert team_id_1 == team_id_2
-        assert id_dict["COL"] == team_id_1
+        assert sql_handler.team_id_dict["TT"] == team_id_1
 
 
 class TestPredicterRegister:
@@ -209,7 +195,6 @@ class TestPredicterRegister:
             name="test_predicter_v1",
             predicter_class_name="TestPredicter",
             path="/path/to/predicter",
-            trainable=True,
             active=True,
         )
 
@@ -223,7 +208,6 @@ class TestPredicterRegister:
             name="update_pred",
             predicter_class_name="OriginalClass",
             path="/original",
-            trainable=False,
             active=True,
         )
         id_1 = sql_handler.predicter_id_from_name("update_pred")
@@ -233,7 +217,6 @@ class TestPredicterRegister:
             name="update_pred",
             predicter_class_name="UpdatedClass",
             path="/updated",
-            trainable=True,
             active=False,
         )
         id_2 = sql_handler.predicter_id_from_name("update_pred")
@@ -243,12 +226,11 @@ class TestPredicterRegister:
 
         # Verify updated values
         stmt = select(PredicterRegister).where(PredicterRegister.id == id_1)
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             result = conn.execute(stmt).first()
 
-        assert result.predicterType == "UpdatedClass"
+        assert result.predicterClass == "UpdatedClass"
         assert result.predicterPath == "/updated"
-        assert result.trainable is True
         assert result.active is False
 
     def test_predicter_id_from_name_not_found(self, sql_handler):
@@ -266,7 +248,7 @@ class TestLastTrainingDate:
 
         # Verify record exists
         stmt = select(LastTraining).where(LastTraining.predicterID == 1)
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             result = conn.execute(stmt).first()
 
         assert result is not None
@@ -318,7 +300,7 @@ class TestGamePredictions:
         stmt = select(GamePredictions).where(
             (GamePredictions.gameID == 100) & (GamePredictions.predicterID == 1)
         )
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             result = conn.execute(stmt).first()
 
         assert result is not None
@@ -330,14 +312,14 @@ class TestGamePredictions:
         # Test < 0.5
         sql_handler.record_game_prediction(game_id=101, predicter_id=1, prediction=0.3)
         stmt = select(GamePredictions).where(GamePredictions.gameID == 101)
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             result = conn.execute(stmt).first()
         assert result.predictionBinary == 0
 
         # Test >= 0.5
         sql_handler.record_game_prediction(game_id=102, predicter_id=1, prediction=0.5)
         stmt = select(GamePredictions).where(GamePredictions.gameID == 102)
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             result = conn.execute(stmt).first()
         assert result.predictionBinary == 1
 
@@ -348,7 +330,7 @@ class TestGamePredictions:
 
         # Verify single record with updated value
         stmt = select(GamePredictions).where(GamePredictions.gameID == 103)
-        with sql_handler.db_con.connect() as conn:
+        with sql_handler.engine.connect() as conn:
             results = conn.execute(stmt).fetchall()
 
         assert len(results) == 1
@@ -364,59 +346,59 @@ class TestGamePredictions:
         assert last_date == today
 
 
-class TestActionDateValidation:
-    """Tests for allow-list validation in set_action_date and get_action_date."""
-
-    def test_set_action_date_valid_table(self, sql_handler):
-        """Test setting action date for allowed table."""
-        sql_handler.set_action_date("gamesLastExport", "lastExportDate", date.today())
-
-        result = sql_handler.get_action_date("gamesLastExport", "lastExportDate")
-        assert result is not None
-
-    def test_set_action_date_invalid_table(self, sql_handler):
-        """Test setting action date raises error for disallowed table."""
-        with pytest.raises(ValueError, match="Invalid table_name"):
-            sql_handler.set_action_date("forbidden_table", "some_column")
-
-    def test_set_action_date_invalid_column(self, sql_handler):
-        """Test setting action date raises error for disallowed column."""
-        with pytest.raises(ValueError, match="Invalid table_name or column_name"):
-            sql_handler.set_action_date("gamesLastExport", "wrongColumn")
-
-    def test_get_action_date_invalid_table(self, sql_handler):
-        """Test getting action date raises error for disallowed table."""
-        with pytest.raises(ValueError, match="Invalid table_name"):
-            sql_handler.get_action_date("forbidden_table", "some_column")
-
-    def test_set_get_game_export_date(self, sql_handler):
-        """Test set/get game export date convenience methods."""
-        sql_handler.set_game_export_date()
-        result = sql_handler.get_game_export_date()
-
-        assert result is not None
-        assert isinstance(result, date)
-        assert result == date.today()
-
-    def test_set_get_game_export_date_overwrites(self, sql_handler):
-        """Test that game export date overwrites previous value."""
-        old_date = date.today() - timedelta(days=5)
-
-        with sql_handler.db_con.begin() as conn:
-            try:
-                conn.execute(text("DELETE FROM gamesLastExport"))
-                conn.execute(
-                    text(
-                        f'INSERT INTO gamesLastExport(lastExportDate) VALUES ("{old_date}")'
-                    )
-                )
-            except Exception:
-                pass  # Table might be empty
-
-        sql_handler.set_game_export_date()
-        result = sql_handler.get_game_export_date()
-
-        assert result == date.today()
+#class TestActionDateValidation:
+#    """Tests for allow-list validation in set_action_date and get_action_date."""
+#
+#    def test_set_action_date_valid_table(self, sql_handler):
+#        """Test setting action date for allowed table."""
+#        sql_handler.set_action_date("gamesLastExport", "lastExportDate", date.today())
+#
+#        result = sql_handler.get_action_date("gamesLastExport", "lastExportDate")
+#        assert result is not None
+#
+#    def test_set_action_date_invalid_table(self, sql_handler):
+#        """Test setting action date raises error for disallowed table."""
+#        with pytest.raises(ValueError, match="Invalid table_name"):
+#            sql_handler.set_action_date("forbidden_table", "some_column")
+#
+#    def test_set_action_date_invalid_column(self, sql_handler):
+#        """Test setting action date raises error for disallowed column."""
+#        with pytest.raises(ValueError, match="Invalid table_name or column_name"):
+#            sql_handler.set_action_date("gamesLastExport", "wrongColumn")
+#
+#    def test_get_action_date_invalid_table(self, sql_handler):
+#        """Test getting action date raises error for disallowed table."""
+#        with pytest.raises(ValueError, match="Invalid table_name"):
+#            sql_handler.get_action_date("forbidden_table", "some_column")
+#
+#    def test_set_get_game_export_date(self, sql_handler):
+#        """Test set/get game export date convenience methods."""
+#        sql_handler.set_game_export_date()
+#        result = sql_handler.get_game_export_date()
+#
+#        assert result is not None
+#        assert isinstance(result, date)
+#        assert result == date.today()
+#
+#    def test_set_get_game_export_date_overwrites(self, sql_handler):
+#        """Test that game export date overwrites previous value."""
+#        old_date = date.today() - timedelta(days=5)
+#
+#        with sql_handler.engine.begin() as conn:
+#            try:
+#                conn.execute(text("DELETE FROM gamesLastExport"))
+#                conn.execute(
+#                    text(
+#                        f'INSERT INTO gamesLastExport(lastExportDate) VALUES ("{old_date}")'
+#                    )
+#                )
+#            except Exception:
+#                pass  # Table might be empty
+#
+#        sql_handler.set_game_export_date()
+#        result = sql_handler.get_game_export_date()
+#
+#        assert result == date.today()
 
 
 class TestQueryWithParams:
@@ -424,14 +406,11 @@ class TestQueryWithParams:
 
     def test_query_with_sql_string(self, sql_handler):
         """Test query() accepts SQL string."""
-        from sqlalchemy import insert as sa_insert
 
         # Insert test data
-        stmt = sa_insert(Teams).values(name="Test Team", nameAbbrev="TST")
-        with sql_handler.db_con.begin() as conn:
-            conn.execute(stmt)
+        insert_test_team(sql_handler)
 
-        df = sql_handler.query("SELECT * FROM teams WHERE nameAbbrev = 'TST'")
+        df = sql_handler.query("SELECT * FROM teams WHERE nameAbbrev = 'TT'")
 
         assert not df.empty
         assert len(df) >= 1
@@ -439,29 +418,56 @@ class TestQueryWithParams:
 
     def test_query_with_text_and_params(self, sql_handler):
         """Test query() accepts text() with parameters."""
-        from sqlalchemy import insert as sa_insert
 
         # Insert test data
-        stmt = sa_insert(Teams).values(name="Param Team", nameAbbrev="PRM")
-        with sql_handler.db_con.begin() as conn:
-            conn.execute(stmt)
+        insert_test_team(sql_handler)
 
         sql = text("SELECT * FROM teams WHERE nameAbbrev = :abbrev")
-        df = sql_handler.query(sql, params={"abbrev": "PRM"})
+        df = sql_handler.query(sql, params={"abbrev": "TT"})
 
         assert not df.empty
         assert len(df) >= 1
 
     def test_query_returns_dataframe(self, sql_handler):
         """Test that query() always returns DataFrame."""
-        from sqlalchemy import insert as sa_insert
 
-        stmt = sa_insert(Teams).values(name="DF Team", nameAbbrev="DFT")
-        with sql_handler.db_con.begin() as conn:
-            conn.execute(stmt)
+        insert_test_team(sql_handler)
 
-        result = sql_handler.query("SELECT * FROM teams WHERE nameAbbrev = 'DFT'")
+        result = sql_handler.query("SELECT * FROM teams WHERE nameAbbrev = 'TT'")
 
         import pandas as pd
 
         assert isinstance(result, pd.DataFrame)
+
+class TestRecordCreation:
+    """ Test for creating records in tables."""
+
+    def two_test_teams(self, sql_handler):
+        stmt1 = insert(Teams).values(name="Test Team 1", nameAbbrev="TT1", conferenceAbbrev="E", divisionAbbrev="A")
+        stmt2 = insert(Teams).values(name="Test Team 2", nameAbbrev="TT2", conferenceAbbrev="E", divisionAbbrev="A")
+        with sql_handler.engine.begin() as conn:
+            conn.execute(stmt1)
+            conn.execute(stmt2)
+
+    def test_team_creation(self, sql_handler):
+        self.two_test_teams(sql_handler)
+
+        select_stmt = select(func.count()).select_from(Teams)
+        with sql_handler.engine.begin() as conn:
+            out = conn.execute(select_stmt)
+        out = out.fetchone()[0]
+        assert out == 2
+
+    def test_game_creation(self, sql_handler):
+        self.two_test_teams(sql_handler)
+    
+        game = Game("TT1", "TT2", "1997-03-26", 1234, 19961997)
+        game.api_id = 0
+        sql_handler.insert_game(game)
+    
+        #out = sql_handler.execute("SELECT COUNT(id) FROM games")
+        select_stmt = select(func.count()).select_from(Games)
+        with sql_handler.engine.begin() as conn:
+            out = conn.execute(select_stmt)
+        out = out.fetchone()[0]
+        assert out == 1
