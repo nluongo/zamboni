@@ -153,23 +153,23 @@ def download_games(
                 sched_date += day_delta
                 continue
 
-            for day in response.gameWeek:
-                logger.debug(f"Day in response: {day}")
-                if not day.games:
-                    logger.info(f"No games found for date {day.date}")
-                    sched_date += day_delta
-                    continue
-
-                for game in day.games:
-                    logger.debug(f"Game in response: {game}")
-                    if write_all_fields:
-                        # Convert Pydantic model to dict for flattening
-                        game_dict = game.model_dump()
-                        write_game_data_all(f, game_dict, first_line)
-                        first_line = False
-                    else:
-                        write_game_data(f, game)
+            day = response.gameWeek[0]
+            logger.debug(f"Day in response: {day}")
+            if not day.games:
+                logger.info(f"No games found for date {day.date}")
                 sched_date += day_delta
+                continue
+
+            for game in day.games:
+                logger.debug(f"Game in response: {game}")
+                if write_all_fields:
+                    # Convert Pydantic model to dict for flattening
+                    game_dict = game.model_dump()
+                    write_game_data_all(f, game_dict, first_line)
+                    first_line = False
+                else:
+                    write_game_data(f, game)
+            sched_date += day_delta
 
     # Download current day and load into separate file
     with open(out_path_today, "w") as f:

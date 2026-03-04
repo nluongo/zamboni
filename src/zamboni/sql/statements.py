@@ -94,6 +94,7 @@ def games_select(start_date, end_date):
             isouter=True,
         )
         .join(gpso, Games.id == gpso.gameID, isouter=True)
+        .where(Games.outcome >= 0)
     )
     if start_date:
         stmt = stmt.where(Games.datePlayed >= start_date).where(

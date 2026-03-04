@@ -34,6 +34,7 @@ def run(
     logger = logging.getLogger(__name__)
 
     data_dir = data_config["dir"]
+    s3_storage = None
     if data_config["use_s3"]:
         from zamboni.storage import S3Storage
         s3_storage = S3Storage(data_config)
@@ -97,14 +98,15 @@ def run(
             if len(new_games) == 0:
                 continue
             games_data = ZamboniData(new_games)
+            print(f"games_data: {games_data.data}")
             # Add preds column with predictions
-            predicter.update(games_data.data)
+            predicter.update(games_data)
             sql_handler.record_game_predictions(predicter.id, games_data.data)
 
-        
-    if data_config["use_s3"]:
+    # Upload files back to S3 if configured
+    if s3_storage is not None:
+        logger.info("Uploading files back to S3...")
         s3_storage.upload_files()
-
 
         # if report:
         #    todays_games = sql_handler.query_games(start_date=today_date_str())

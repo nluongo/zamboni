@@ -14,6 +14,13 @@ def initialize_predicter(id, name, class_name, model_path, active, sql_handler=N
         predicter = HomeTeamWinsPredicter(id=id, name=name, active=active)
     elif class_name == "MoreWinsPredicter":
         predicter = MoreWinsPredicter(id=id, name=name, active=active, sql_handler=sql_handler)
+    elif class_name == "BDTGamePredicter":
+        from .bdt_predicter import BDTGamePredicter
+        predicter = BDTGamePredicter(id=id, 
+                                     name=name, 
+                                     active=active, 
+                                     model_path=model_path, 
+                                     sql_handler=sql_handler)
     elif class_name == "NNGamePredicter":
         from .nn_predicter import NNGamePredicter
         predicter = NNGamePredicter(id=id, name=name, active=active, model_path=model_path)
@@ -60,7 +67,7 @@ class GamePredicter:
         Args:
             new_games: A DataFrame or similar structure containing new game data.
         """
-        games['preds'] = games.apply(lambda game: self.predict(game), axis=1)
+        games.data['preds'] = games.data.apply(lambda game: self.predict(game), axis=1)
 
     def run_strategy(self):
         """
@@ -127,39 +134,6 @@ class MoreWinsPredicter(GamePredicter):
         else:
             out = 0
         return out
-
-#class BDTGamePredicter(GamePredicter):
-#    """
-#    Boosted decision tree predicter
-#    """
-#
-#    from zamboni.training import Trainer, ConsecutiveStrategy
-#
-#    trainable = True
-#
-#    def __init__(self, id, name, active, model_path):
-#        """
-#        Args:
-#            model: A trained neural network model.
-#        """
-#        super().__init__(id, name, active)
-#        self.model_path = model_path
-#        self.trainer = None
-#        self.model_init = None
-#        self.trainable = True
-#        self.training_strategy = ConsecutiveStrategy
-#        self.sql_handler = SQLHandler()
-#
-#    def get_trainer(self, data, overwrite=False):
-#        self.data = data
-#        self.column_tracker = ColumnTracker(data.data.columns.tolist())
-#        self.model_init = ModelInitializer(
-#            self.model_path, "EmbeddingNN", self.column_tracker
-#        )
-#        self.model, self.optimizer, self.scaler, _, _ = self.model_init.get_model(
-#            overwrite
-#        )
-#        self.trainer = Trainer(self.model, self.optimizer)
 
 
 # class AgentGamePredicter(GamePredicter):

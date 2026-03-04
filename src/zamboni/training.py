@@ -14,6 +14,36 @@ from zamboni.nn_data import create_dataloader, create_dataset
 
 logger = logging.getLogger(__name__)
 
+class BDTTrainer:
+    """Train and evaluate boosted decision tree models"""
+
+    def __init__(self, model, params=None):
+        self.model = model
+        self.params = params if params else {}
+
+    def train(self, zdata: ZamboniData):
+        """
+        Train the boosted decision tree model
+
+        :param X_train: Training features
+        :param y_train: Training labels
+        """
+        X_train = zdata.data[zdata.column_tracker.inputs].values
+        y_train = zdata.data[zdata.column_tracker.target].values
+        print(f"y_train: {y_train}")
+        self.model.fit(X_train, y_train)
+
+    def eval(self, zdata: ZamboniData):
+        """
+        Evaluate the model on test data
+
+        :param X_test: Test features
+        :returns: Model predictions
+        """
+        X_test = zdata.data[zdata.column_tracker.inputs].values
+        labels = zdata.data[zdata.column_tracker.target].values
+        preds = self.model.predict(X_test)  # Get probability of positive class
+        return preds, labels
 
 class Trainer:
     """Train and evaluate models"""
@@ -446,36 +476,43 @@ class FullTrainStrategy(ConsecutiveStrategy):
         :returns: Trainer object, all predictions, all labels
         """
         first_date, last_date = self.prediction_date_bounds(self.prediction_data.data)
+        print(f"First date: {first_date}, last date: {last_date}")
         current_date = copy.deepcopy(first_date)
 
         all_labels = np.array([], dtype=np.float32)
         all_preds = np.array([], dtype=np.float32)
         # Start training and predicting
         while current_date <= last_date:
+            print(f"Current date: {current_date}")
             previous_date = current_date - self.day_delta
 
-            scaler = StandardScaler()
             train_games = self.sql_handler.query_games(
                 self.first_train_date, previous_date
             )
-            train_zdata = ZamboniData(train_games, self.column_tracker)
-            train_zdata.prep_data(scaler, fit=True)
-            self.trainer.train(train_zdata.loader)
-
-            # Predict on today's games
-            todays_zdata = self.data.select_by_date(
-                self.current_date, self.current_date
+            todays_zdata = self.prediction_data.select_by_date(
+                current_date, current_date
             )
-            todays_zdata.prep_data(scaler)
-            logger.debug(f"Today's games: {todays_zdata.data}")
-            _, todays_preds, todays_labels = self.trainer.eval(todays_zdata.loader)
-            logger.debug(
-                f"Today's predictions: {todays_preds}, labels: {todays_labels}"
-            )
+            # If no previous games to train on, predict home wins for today's games
+            if len(train_games) == 0:
+                todays_preds = np.array([1 for _ in range(len(todays_zdata.data))])
+                todays_labels = todays_zdata.data[self.column_tracker.target].values
+            else:
+                scaler = StandardScaler()
+                train_zdata = ZamboniData(train_games, self.column_tracker)
+                print(f"train_zdata: {train_zdata.data}")
+                train_zdata.prep_data(scaler, fit=True)
+                self.trainer.train(train_zdata)
+                # Predict on today's games
+                todays_zdata.prep_data(scaler)
+                logger.debug(f"Today's games: {todays_zdata.data}")
+                todays_preds, todays_labels = self.trainer.eval(todays_zdata)
+                logger.debug(
+                    f"Today's predictions: {todays_preds}, labels: {todays_labels}"
+                )
             all_labels = np.concatenate([all_labels, todays_labels])
             all_preds = np.concatenate([all_preds, todays_preds])
 
-            self.current_date += self.day_delta
+            current_date += self.day_delta
 
         if len(all_preds.shape) > 1:
             all_preds = np.squeeze(all_preds, 1)
