@@ -1,0 +1,22 @@
+FROM python:3.10-slim
+
+WORKDIR /opt/program
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the application source
+COPY ../src src
+COPY ../pyproject.toml .
+COPY ../README.md .
+COPY aws/entrypoint_sagemaker.py .
+
+# Install Python dependencies (excluding torch/ml extras, including aws for boto3)
+RUN pip install --no-cache-dir -e ".[aws,ml]"
+
+# SageMaker expects the training script at /opt/program
+ENTRYPOINT ["python", "entrypoint_sagemaker.py"]

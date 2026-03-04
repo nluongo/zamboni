@@ -1,0 +1,33 @@
+db_uri: "sqlite:////tmp/zamboni.db"
+
+data:
+    dir: "/tmp/data"
+    use_s3: True
+    s3_bucket: "zamboni-bucket"
+    db: 
+        s3_source: "sagemaker/zamboni.db"
+        local: "/tmp/data/zamboni.db"
+        uri: "sqlite:////tmp/data/zamboni.db"
+    completed_file: 
+        s3_source: "sagemaker/games_completed.txt"
+        local: "/tmp/data/games_completed.txt"
+    today_file: 
+        s3_source: "sagemaker/games_today.txt" 
+        local: "/tmp/data/games_today.txt"
+    all_file: 
+        s3_source: "sagemaker/games_all.txt"
+        local: "/tmp/data/games_all.txt"
+
+earliest_date: 2026-01-01
+latest_date: 2026-12-31
+
+predicters:
+  - name: HomeTeamWins
+    class_name: HomeTeamWinsPredicter
+    active: True
+  - name: MoreWins
+    class_name: MoreWinsPredicter
+    active: True
+  - name: BDTWins
+    class_name: BDTGamePredicter
+    active: True
