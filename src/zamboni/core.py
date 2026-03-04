@@ -98,7 +98,6 @@ def run(
             if len(new_games) == 0:
                 continue
             games_data = ZamboniData(new_games)
-            print(f"games_data: {games_data.data}")
             # Add preds column with predictions
             predicter.update(games_data)
             sql_handler.record_game_predictions(predicter.id, games_data.data)

@@ -30,7 +30,6 @@ class BDTTrainer:
         """
         X_train = zdata.data[zdata.column_tracker.inputs].values
         y_train = zdata.data[zdata.column_tracker.target].values
-        print(f"y_train: {y_train}")
         self.model.fit(X_train, y_train)
 
     def eval(self, zdata: ZamboniData):
@@ -422,8 +421,6 @@ class IncrementalStrategy(ConsecutiveStrategy):
                 fit_today = False
 
                 # Fit scaler based on all data seen by the network so far
-                print(f"start_date: {self.start_date}")
-                print(f"yesterdays_date: {yesterdays_date}")
                 prev_zdata = self.all_zdata.select_by_date(
                     self.start_date, yesterdays_date
                 )
@@ -476,14 +473,12 @@ class FullTrainStrategy(ConsecutiveStrategy):
         :returns: Trainer object, all predictions, all labels
         """
         first_date, last_date = self.prediction_date_bounds(self.prediction_data.data)
-        print(f"First date: {first_date}, last date: {last_date}")
         current_date = copy.deepcopy(first_date)
 
         all_labels = np.array([], dtype=np.float32)
         all_preds = np.array([], dtype=np.float32)
         # Start training and predicting
         while current_date <= last_date:
-            print(f"Current date: {current_date}")
             previous_date = current_date - self.day_delta
 
             train_games = self.sql_handler.query_games(
@@ -499,7 +494,6 @@ class FullTrainStrategy(ConsecutiveStrategy):
             else:
                 scaler = StandardScaler()
                 train_zdata = ZamboniData(train_games, self.column_tracker)
-                print(f"train_zdata: {train_zdata.data}")
                 train_zdata.prep_data(scaler, fit=True)
                 self.trainer.train(train_zdata)
                 # Predict on today's games
