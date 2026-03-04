@@ -231,8 +231,9 @@ class SQLHandler:
         """
         Load games from txt to db
         """
+        # Completed games
         if not txt_path:
-            txt_path = f"{self.txt_dir}/games.txt"
+            txt_path = f"{self.txt_dir}/games_completed.txt"
         with open(txt_path, "r") as f:
             for line in f.readlines():
                 game = Game.from_csv_line(line)
@@ -248,6 +249,7 @@ class SQLHandler:
                             f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                         )
 
+        # Today's games
         txt_path = f"{self.txt_dir}/games_today.txt"
         with open(txt_path, "r") as f:
             for line in f.readlines():
@@ -261,6 +263,7 @@ class SQLHandler:
                         f"Game with ID {api_id} already exists in db with outcome {outcome}, skipping"
                     )
 
+        # All games
         txt_path = f"{self.txt_dir}/games_all.txt"
         with open(txt_path, "r") as f:
             for line in f.readlines():

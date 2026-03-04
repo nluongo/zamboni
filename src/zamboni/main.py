@@ -22,6 +22,12 @@ def cli():
         type=datetime.date.fromisoformat,
         help="Earliest date to download from API - YYYY:MM:DD"
     )
+    # Ending date
+    parser.add_argument(
+        "--latest-date", 
+        type=datetime.date.fromisoformat,
+        help="Latest date to download from API - YYYY:MM:DD"
+    )
 
     # List of predicters
     parser.add_argument("--predicters", type=list, help="List of predicters to use")
@@ -112,8 +118,9 @@ def cli():
 
     config.update(args)
 
-    db_uri = config["db_uri"]
+    data_config = config["data"]
     earliest_date = config["earliest_date"]
+    latest_date = config["latest_date"]
     predicters = config.get("predicters", [])
     download = config["download"]
     create_tables = config["create_tables"]
@@ -125,8 +132,9 @@ def cli():
     loglevel = config["loglevel"]
 
     run(
-        db_uri=db_uri,
+        data_config=data_config,
         earliest_date=earliest_date,
+        latest_date=latest_date,
         predicters=predicters,
         download=download,
         create_tables=create_tables,

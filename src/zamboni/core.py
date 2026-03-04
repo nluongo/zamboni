@@ -16,9 +16,10 @@ loglevels = {
 
 
 def run(
-    db_uri,
+    data_config,
     predicters,
     earliest_date = datetime.date.fromisoformat("2025-09-01"),
+    latest_date = datetime.date.fromisoformat("2026-09-01"),
     download=True,
     create_tables=True,
     force_recreate_tables=False,
@@ -32,14 +33,22 @@ def run(
     logging.basicConfig(level=loglevel)
     logger = logging.getLogger(__name__)
 
-    logger.info(f"DB URI: {db_uri}")
+    data_dir = data_config["dir"]
+    if data_config["use_s3"]:
+        from zamboni.storage import S3Storage
+        s3_storage = S3Storage(data_config)
+        s3_storage.get_files()
+
+    db_uri = data_config["db"]["uri"]
+
+    logger.info(f'DB URI: {db_uri}')
 
     if download:
-        download_main(start_date=earliest_date)
+        download_main(data_config, start_date=earliest_date, end_date=latest_date)
 
     db_connector = DBConnector(db_uri)
     engine = db_connector.connect_db()
-    sql_handler = SQLHandler(engine=engine)
+    sql_handler = SQLHandler(txt_dir=data_dir, engine=engine)
 
     if create_tables:
         table_creator = TableCreator(engine)
@@ -91,6 +100,11 @@ def run(
             # Add preds column with predictions
             predicter.update(games_data.data)
             sql_handler.record_game_predictions(predicter.id, games_data.data)
+
+        
+    if data_config["use_s3"]:
+        s3_storage.upload_files()
+
 
         # if report:
         #    todays_games = sql_handler.query_games(start_date=today_date_str())

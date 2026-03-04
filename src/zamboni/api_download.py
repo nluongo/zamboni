@@ -109,12 +109,18 @@ def write_game_data_all(f, game, first_line=False):
         logger.error(f"Error flattening or writing game data: {e}")
 
 
-def download_games(start_date, out_path="data/games.txt", write_all_fields=False):
+def download_games(
+        start_date, 
+        end_date,
+        out_path_completed="data/games_completed.txt",  
+        out_path_today="data/games_today.txt",  
+        out_path_all="data/games_all.txt",  
+        write_all_fields=False):
     """
     Download NHL game data from API and write to file.
 
     :param start_date: Date to start downloading from
-    :param out_path: Path to output file
+    :param out_path_completed: Path to output file with completed games
     :param all: If True, write all fields; if False, write subset
     """
     caller = APICaller()
@@ -124,7 +130,7 @@ def download_games(start_date, out_path="data/games.txt", write_all_fields=False
     day_delta = timedelta(days=1)
 
     # Download up to previous day and load to main file
-    with open(out_path, "a+") as f:
+    with open(out_path_completed, "a+") as f:
         f.seek(0)
         lines = f.readlines()
         first_line = len(lines) == 0
@@ -166,7 +172,7 @@ def download_games(start_date, out_path="data/games.txt", write_all_fields=False
                 sched_date += day_delta
 
     # Download current day and load into separate file
-    with open("data/games_today.txt", "w") as f:
+    with open(out_path_today, "w") as f:
         response = query_date_games(caller, today_date)
         if not response:
             logger.info(f"No games found for date {today_date}")
@@ -181,15 +187,16 @@ def download_games(start_date, out_path="data/games.txt", write_all_fields=False
             for game in day.games:
                 write_game_data(f, game, completed=False)
 
-    # Download full schedule through the end of latest season
-    current_year = today_date.year
-    if today_date > date(current_year, 5, 1):
-        end_date = date(current_year + 1, 5, 1)
-    else:
-        end_date = date(current_year, 5, 1)
+    if not end_date:
+        # Download full schedule through the end of latest season
+        current_year = today_date.year
+        if today_date > date(current_year, 5, 1):
+            end_date = date(current_year + 1, 5, 1)
+        else:
+            end_date = date(current_year, 5, 1)
     sched_date = start_date
 
-    with open("data/games_all.txt", "a+") as f:
+    with open(out_path_all, "a+") as f:
         f.seek(0)
         lines = f.readlines()
         first_line = len(lines) == 0
@@ -326,12 +333,12 @@ def download_teams(start_year=2024, out_path="data/teams.txt"):
             teams_to_write.add(team_str)
         query_year += 1
 
-    with open("data/teams.txt", "w") as f:
+    with open(out_path, "w") as f:
         for team_str in sorted(list(teams_to_write)):
             f.write(team_str)
 
 
-def download_seasons(start_year):
+def download_seasons(start_year, out_path="data/seasons.txt"):
     """
     Download NHL season data from API and write to file.
 
@@ -340,7 +347,7 @@ def download_seasons(start_year):
     # Don't actually need to download as we know what the records are
     begin_year = start_year
 
-    with open("data/seasons.txt", "w") as f:
+    with open(out_path, "w") as f:
         i = 0
         while begin_year < today_date.year:
             api_id = begin_year * 10001 + 1
@@ -355,13 +362,18 @@ def download_seasons(start_year):
             i += 1
 
 
-def main(start_date):
-    download_dir = "data"
+def main(config, start_date, end_date):
+    download_dir = config["dir"]
     if not os.path.isdir(download_dir):
         os.mkdir(download_dir)
-    download_seasons(start_year=start_date.year)
-    download_teams(start_year=start_date.year)
-    download_games(start_date=start_date)
+    download_seasons(start_year=start_date.year, out_path=f"{download_dir}/seasons.txt")
+    download_teams(start_year=start_date.year, out_path=f"{download_dir}/teams.txt")
+    download_games(start_date=start_date, 
+                    end_date=end_date,
+                    out_path_completed=config["completed_file"]["local"],
+                    out_path_today=config["today_file"]["local"],
+                    out_path_all=config["all_file"]["local"],
+                    )
     # download_players()
     # download_rosters(start_year=start_year)
 
